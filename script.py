@@ -1,26 +1,60 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[70]:
 
 
 def authenticating(credential):
     logging('\n\nfunction>>>>>authenticating')
+     
+    """   
+    █ █▄░█
+    █ █░▀█    
+    """
+        # credential         • <dictionary>                 ○ its keys will be used to authenticate
+        
+    """
+    █▀█ █░█ ▀█▀
+    █▄█ █▄█ ░█░
+    """
+        # api                • <class 'tweepy.api.API'>    ○ authenticated api
     
     auth = tweepy.OAuthHandler(credential["api_key"], credential["api_secret"])
     auth.set_access_token(credential["access_token"], credential["access_token_secret"])
     
     api = tweepy.API(auth,wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
     
+    print(type(api))
     return api
 
 
-# In[10]:
+# In[71]:
 
 
-def print_and_retweet_tweet(api,tweet,dict_tweets_info):
+def print_and_retweet_tweet(api,tweet,dict_tweets_info,searched_word):
     logging('\n\nfunction>>>>>print_and_retweet_tweet')
     
+    """   
+    █ █▄░█
+    █ █░▀█    
+    """
+        # api                • <class 'tweepy.api.API'>    ○ authenticated api
+        # tweet              • <tweet object>              ○ one single tweet object and its attributes 
+        # dict_tweets_info   • <dictionary>                ○ empty, to be filled with informations from this tweet object
+        # searched_word      • <string>                    ○ seeking term (will be used here to validate the inner of tweet content) 
+    
+    """
+    █▀█ █░█ ▀█▀
+    █▄█ █▄█ ░█░
+    """
+        # -1           ○ didn't found the searched_word on tweet.text it self (maybe )
+        # -2           ○ japanese or korean
+        # -3           ○ you have already retweeted this Tweet
+        # -4           ○ RateLimitError
+        # -5           ○ you are the owner of this tweet
+        # -6           ○ tweet was made by the bot's account, we can't retweet stuff made by us 
+        # dict         ○ in a valid situation, returns a populated dictionary containing this tweet's data 
+
     try: 
         logging('appending infos to dictionary')
         dict_tweets_info['created_at'].append(str(tweet.created_at))
@@ -42,40 +76,45 @@ def print_and_retweet_tweet(api,tweet,dict_tweets_info):
         
         logging('print_and_retweet_tweet(): better filtering BEFORE retweet')
         string_tweet_content = "".join(dict_tweets_info['tweet_content'] )
-        if not 'zolpidem' in string_tweet_content.lower():
-            logging('NAO ACHOU ZOLPIDEM NA STRING')
+        if not searched_word in string_tweet_content.lower():
+            logging('NAO ACHOU NA STRING A PALAVRA BUSCADA: '+ searched_word)
             # NO WAY it's gonna retweet something that has NOT 'zolpidem on it'
-            return False
+            return -1
 
         string_lang_content = "".join(dict_tweets_info['language'] )
         logging('STRING_LANG_CONTENT: '+ string_lang_content )
 
         if string_lang_content in ['ja','ko']:
-            logging('ta em japones ou coreano')
+            logging('japones ou coreano')
             # NO WAY it's gonna retweet something that is in japanese or korean
-            return False
+            return -2
         else:
             logging('teoricamente nao esta em japones nem coreano')
-    
-        logging('retweeting ←←←←←←')
+        
+        my_user_object = api.me()
+        if [my_user_object.screen_name] == tweet.user.screen_name:
+            logging('this tweet was made by yourself using your bot profile !!we wont retweet it')
+            return -6
+        
+        logging('retweeting ←←←←←←←←←←←←←')
         api.retweet(tweet.id)
-        logging('→→→→→→→ retweeted')
+        logging('→→→→→→→→→→→→→ retweeted')
         return dict_tweets_info
     
     except tweepy.TweepError as e: 
         if e.api_code == 327:
             logging('You have already retweeted this Tweet')
-            return False
+            return -3
         
     except tweepy.RateLimitError as e:
         logging('Excedeu limite por tempo?')
         logging('erro: '+str(e))
         logging('DORMINDO POR QUINZE MINUTOS')
         time.sleep(60 * 15)  # we supposedly saw a rate limit that is ignored after 15 min ??? so we should wait 15 min to retry 
-        return False
+        return -4
 
 
-# In[3]:
+# In[72]:
 
 
 def write_json_and_updates_value(path,incrementa_contagem_de_falha=False,inicializar = False):
@@ -137,7 +176,7 @@ def write_json_and_updates_value(path,incrementa_contagem_de_falha=False,inicial
                         f.write(contenting)
 
 
-# In[4]:
+# In[73]:
 
 
 def export_infos_to_csv(valid_tweet):
@@ -173,7 +212,7 @@ def export_infos_to_csv(valid_tweet):
             wr = csv.writer(file)
             wr.writerow(header_csv)
             
-    with open(CSV_path, "a",encoding="utf-8") as file:
+    with open(CSV_path, "a",encoding="utf-8", newline='') as file:
         logging('writing lista_valores_atuais anyways')
         wr = csv.writer(file)
         wr.writerow(lista_valores_atuais)
@@ -181,7 +220,8 @@ def export_infos_to_csv(valid_tweet):
     # df = pd.DataFrame(lista_valores_atuais) # turning into data frame
     # df.to_csv(path_or_buf = CSV_path, mode='a',index=False, cols = header_csv)
 
-# In[5]:
+
+# In[74]:
 
 
 def logging(text_to_log=""):
@@ -207,7 +247,7 @@ def logging(text_to_log=""):
     print(timestamp+ ' - ' + text_to_log)
 
 
-# In[6]:
+# In[75]:
 
 
 def translate_special_text_to_ascii(original_text):
@@ -222,12 +262,17 @@ def translate_special_text_to_ascii(original_text):
     return translated_text
 
 
-# In[7]:
+# In[76]:
 
 
 def main():
     
-    # cria pastas que o robô usa caso não existam 
+    # ----------------------------------------------------------------------------------------------------------
+    # ---------------------  CRIA PASTAS QUE O ROBÔ VAI USAR NO DIRETÓRIO DO SCRIPT  ---------------------------
+    # ----------------------------------------------------------------------------------------------------------
+    # ------------------------- e json de controle também, caso nada disso exista ------------------------------
+    # ----------------------------------------------------------------------------------------------------------
+    
     current_directory = os.getcwd()
     if not os.path.exists(current_directory+'\\arquivos_bot\\logs'):
         pymsgbox.alert(text='Criando pasta de logs', title='Preparando bot', button='OK',timeout=4500)
@@ -245,8 +290,6 @@ def main():
         os.makedirs(current_directory+'\\arquivos_bot\\dados_exportados')
         logging("Criando pasta de dados exportados")
     
-    pymsgbox.alert('Pastas necessárias para o robô conferidas, iniciando o bot', 'Starting bot',timeout=5000)
-    logging(" --------- INICIANDO ROBÔ ---------")
     
     # checking if control json exists, otherwise we create it
     if not os.path.exists(current_directory+'\\arquivos_bot\\controle\\amount_of_tweets_from_today.json'):
@@ -254,6 +297,15 @@ def main():
         now = datetime.now()
         date = now.strftime("%d/%m/%Y")
         write_json_and_updates_value(current_directory+'\\arquivos_bot\\controle\\amount_of_tweets_from_today.json',incrementa_contagem_de_falha=False,inicializar = True)
+    
+    
+    pymsgbox.alert('Pastas necessárias para o robô conferidas, iniciando o bot', 'Starting bot',timeout=5000)
+    logging("░██████╗████████╗░█████╗░██████╗░████████╗██╗███╗░░██╗░██████╗░")
+    logging("██╔════╝╚══██╔══╝██╔══██╗██╔══██╗╚══██╔══╝██║████╗░██║██╔════╝░")
+    logging("╚█████╗░░░░██║░░░███████║██████╔╝░░░██║░░░██║██╔██╗██║██║░░██╗░")
+    logging("░╚═══██╗░░░██║░░░██╔══██║██╔══██╗░░░██║░░░██║██║╚████║██║░░╚██╗")
+    logging("██████╔╝░░░██║░░░██║░░██║██║░░██║░░░██║░░░██║██║░╚███║╚██████╔╝")
+    logging("╚═════╝░░░░╚═╝░░░╚═╝░░╚═╝╚═╝░░╚═╝░░░╚═╝░░░╚═╝╚═╝░░╚══╝░╚═════╝░")
     
     credential =  {
                     "api_key" : credentials.API_KEY,
@@ -264,47 +316,63 @@ def main():
                     }
     
     api = authenticating(credential)
-    
-    
-    for tweet in tweepy.Cursor(api.search, q='zolpidem').items(1100):
 
-        dict_tweets_info = {
-        "created_at": [],
-        "tweet_ID": [],
-        "user": [],
-        "tweet_content": [],
-        "place": [],
-        "language": [],
-        "source": [] 
-    }
+    words = ['ambien','zolpidem']
+    
+    for searched_word in words:
         
-        with open(current_directory+'\\arquivos_bot\\controle\\amount_of_tweets_from_today.json') as json_file:
-            tweets_status = json.load(json_file)
-            if tweets_status["amount_of_tweets"] == 999 and tweets_status == date:
-                sys.exit('DAILY LIMIT REACHED, CANT RETWEET MORE THAN 1000 TWEETS')
-                
-        valid_tweet = print_and_retweet_tweet(api,tweet,dict_tweets_info)
-        
-        if not valid_tweet:
-            logging('Tweet is not valid for some reason thus we retrieve another one')
-            write_json_and_updates_value(current_directory+'\\arquivos_bot\\controle\\amount_of_tweets_from_today.json',incrementa_contagem_de_falha=True)
-            continue
+        for tweet in tweepy.Cursor(api.search, q = searched_word ).items(1100):
             
-        if isinstance(valid_tweet,dict):
-            logging('Ok, we received a dict as return, we may export the results now')
-            export_infos_to_csv(valid_tweet)
-            write_json_and_updates_value(current_directory+'\\arquivos_bot\\controle\\amount_of_tweets_from_today.json',incrementa_contagem_de_falha=False)
-        else:
-            logging('Unexpected return for print_and_retweet_tweet different than dict or false!! content: '+str(valid_tweet))
-            write_json_and_updates_value(current_directory+'\\arquivos_bot\\controle\\amount_of_tweets_from_today.json',incrementa_contagem_de_falha=False)
-        logging("Waiting 2 min for retrieve another tweet cuz we like safety")
-        time.sleep(60*2) # sleep 2 min, so we dont reach the limit 100 tweets per hour
+            dict_tweets_info = {
+            "created_at": [],
+            "tweet_ID": [],
+            "user": [],
+            "tweet_content": [],
+            "place": [],
+            "language": [],
+            "source": [] 
+        }
+
+            with open(current_directory+'\\arquivos_bot\\controle\\amount_of_tweets_from_today.json') as json_file:
+                tweets_status = json.load(json_file)
+                if tweets_status["amount_of_tweets"] == 999 and tweets_status['current_date'] == date:
+                    sys.exit('DAILY LIMIT REACHED, CANT RETWEET MORE THAN 1000 TWEETS')
+
+            valid_tweet = print_and_retweet_tweet(api,tweet,dict_tweets_info,searched_word)
+
+            if not valid_tweet is True: # retornou de -1 a -5
+                logging('Tweet is not valid for some reason thus we retrieve another one')
+                write_json_and_updates_value(current_directory+'\\arquivos_bot\\controle\\amount_of_tweets_from_today.json',incrementa_contagem_de_falha=True)
+                continue
+
+            if isinstance(valid_tweet,dict):
+                logging('Ok, we received a dict as return, we may export the results now')
+                export_infos_to_csv(valid_tweet)
+                write_json_and_updates_value(current_directory+'\\arquivos_bot\\controle\\amount_of_tweets_from_today.json',incrementa_contagem_de_falha=False)
+            else:
+                logging('Unexpected return for print_and_retweet_tweet different than dict or false!! content: '+str(valid_tweet))
+                write_json_and_updates_value(current_directory+'\\arquivos_bot\\controle\\amount_of_tweets_from_today.json',incrementa_contagem_de_falha=False)
+            logging("Waiting 2 min for retrieve another tweet cuz we like safety")
+            time.sleep(60*2) # sleep 2 min, so we dont reach the limit 100 tweets per hour
         
-    logging('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ FIM DA LAP $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ ')   
-    pymsgbox.alert('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ \n         FIM DA LAP\n $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$', 'End of times ',timeout=40000)
+    
+    logging('███████╗███╗░░██╗██████╗░  ░█████╗░███████╗  ██╗░░░░░░█████╗░██████╗░')
+    logging('██╔════╝████╗░██║██╔══██╗  ██╔══██╗██╔════╝  ██║░░░░░██╔══██╗██╔══██╗')
+    logging('█████╗░░██╔██╗██║██║░░██║  ██║░░██║█████╗░░  ██║░░░░░███████║██████╔╝')
+    logging('██╔══╝░░██║╚████║██║░░██║  ██║░░██║██╔══╝░░  ██║░░░░░██╔══██║██╔═══╝░')
+    logging('███████╗██║░╚███║██████╔╝  ╚█████╔╝██║░░░░░  ███████╗██║░░██║██║░░░░░')
+    logging('╚══════╝╚═╝░░╚══╝╚═════╝░  ░╚════╝░╚═╝░░░░░  ╚══════╝╚═╝░░╚═╝╚═╝░░░░░')
+    
+    pymsgbox.alert('$$$$$$$$$$$$$$ \n FIM DA LAP\n $$$$$$$$$$$$$', 'End of times',timeout=40000)
+
+    
+    
+    # bot by: @minhadona, jan.2021
+    # big letters font generator: https://fsymbols.com/generators/tarty/
+    
 
 
-# In[9]:
+# In[77]:
 
 
 import import_ipynb
@@ -320,12 +388,6 @@ import sys
 import csv
 
 main()
-
-
-# In[ ]:
-
-
-
 
 
 # In[ ]:
