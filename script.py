@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[70]:
+# In[95]:
 
 
 def authenticating(credential):
@@ -28,7 +28,7 @@ def authenticating(credential):
     return api
 
 
-# In[71]:
+# In[96]:
 
 
 def print_and_retweet_tweet(api,tweet,dict_tweets_info,searched_word):
@@ -82,19 +82,19 @@ def print_and_retweet_tweet(api,tweet,dict_tweets_info,searched_word):
             return -1
 
         string_lang_content = "".join(dict_tweets_info['language'] )
-        logging('STRING_LANG_CONTENT: '+ string_lang_content )
-
         if string_lang_content in ['ja','ko']:
             logging('japones ou coreano')
             # NO WAY it's gonna retweet something that is in japanese or korean
             return -2
         else:
-            logging('teoricamente nao esta em japones nem coreano')
+            logging('teoricamente nao esta em japones nem coreano, está em: '+string_lang_content )
         
         my_user_object = api.me()
-        if [my_user_object.screen_name] == tweet.user.screen_name:
+        if str(my_user_object.screen_name) == str(tweet.user.screen_name):
             logging('this tweet was made by yourself using your bot profile !!we wont retweet it')
             return -6
+        else:
+            logging('this user is not you! you: '+ str(my_user_object.screen_name) + ' the tweeter: '+ str(tweet.user.screen_name) +', that s great')
         
         logging('retweeting ←←←←←←←←←←←←←')
         api.retweet(tweet.id)
@@ -114,7 +114,7 @@ def print_and_retweet_tweet(api,tweet,dict_tweets_info,searched_word):
         return -4
 
 
-# In[72]:
+# In[97]:
 
 
 def write_json_and_updates_value(path,incrementa_contagem_de_falha=False,inicializar = False):
@@ -176,7 +176,7 @@ def write_json_and_updates_value(path,incrementa_contagem_de_falha=False,inicial
                         f.write(contenting)
 
 
-# In[73]:
+# In[98]:
 
 
 def export_infos_to_csv(valid_tweet):
@@ -221,7 +221,7 @@ def export_infos_to_csv(valid_tweet):
     # df.to_csv(path_or_buf = CSV_path, mode='a',index=False, cols = header_csv)
 
 
-# In[74]:
+# In[99]:
 
 
 def logging(text_to_log=""):
@@ -247,7 +247,7 @@ def logging(text_to_log=""):
     print(timestamp+ ' - ' + text_to_log)
 
 
-# In[75]:
+# In[100]:
 
 
 def translate_special_text_to_ascii(original_text):
@@ -262,7 +262,7 @@ def translate_special_text_to_ascii(original_text):
     return translated_text
 
 
-# In[76]:
+# In[101]:
 
 
 def main():
@@ -317,7 +317,7 @@ def main():
     
     api = authenticating(credential)
 
-    words = ['ambien','zolpidem']
+    words = ['zolpidem','ambien']
     
     for searched_word in words:
         
@@ -341,7 +341,7 @@ def main():
             valid_tweet = print_and_retweet_tweet(api,tweet,dict_tweets_info,searched_word)
 
             if not valid_tweet is True: # retornou de -1 a -5
-                logging('Tweet is not valid for some reason thus we retrieve another one')
+                logging('Tweet is not valid, return: '+str(valid_tweet))
                 write_json_and_updates_value(current_directory+'\\arquivos_bot\\controle\\amount_of_tweets_from_today.json',incrementa_contagem_de_falha=True)
                 continue
 
@@ -372,7 +372,7 @@ def main():
     
 
 
-# In[77]:
+# In[102]:
 
 
 import import_ipynb
