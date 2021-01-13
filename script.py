@@ -1,7 +1,112 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[194]:
+
+
+def main():
+    
+    checks_if_necessary_folders_exist_otherwise_create_them()
+    checks_if_necessary_files_exist_otherwise_create_them()
+    
+    # ----------------------------------------------------------------------------------
+    # ---------------- populating dictionary with API credentials from json ------------
+    # ----------------------------------------------------------------------------------
+    
+    with open(useful_variables.credentials_json) as credentials_file:
+        credentials = json.load(credentials_file)
+        logging('credential value: '+ str(credentials))
+                             
+    pymsgbox.alert('Starting bot!', 'Starting bot',timeout=5000)
+    logging("░██████╗████████╗░█████╗░██████╗░████████╗██╗███╗░░██╗░██████╗░")
+    logging("██╔════╝╚══██╔══╝██╔══██╗██╔══██╗╚══██╔══╝██║████╗░██║██╔════╝░")
+    logging("╚█████╗░░░░██║░░░███████║██████╔╝░░░██║░░░██║██╔██╗██║██║░░██╗░")
+    logging("░╚═══██╗░░░██║░░░██╔══██║██╔══██╗░░░██║░░░██║██║╚████║██║░░╚██╗")
+    logging("██████╔╝░░░██║░░░██║░░██║██║░░██║░░░██║░░░██║██║░╚███║╚██████╔╝")
+    logging("╚═════╝░░░░╚═╝░░░╚═╝░░╚═╝╚═╝░░╚═╝░░░╚═╝░░░╚═╝╚═╝░░╚══╝░╚═════╝░")
+    
+    try: 
+        api = authenticating(credentials)
+
+        words = ['zolpidem','ambien']
+
+        for searched_word in words:
+
+            for tweet in tweepy.Cursor(api.search, q = searched_word).items(1100):
+
+                dict_tweets_info = {
+                "created_at": [],
+                "tweet_ID": [],
+                "user": [],
+                "tweet_content": [],
+                "place": [],
+                "language": [],
+                "source": [] 
+            }
+
+                with open(useful_variables.control_json) as json_file:
+                    tweets_status = json.load( json_file)
+                    if tweets_status["amount_of_tweets"] == 999 and tweets_status['current_date'] == date:
+                        sys.exit('DAILY LIMIT REACHED, CANT RETWEET MORE THAN 1000 TWEETS')
+
+                valid_tweet = validate_and_retweet_tweet(api,
+                                                         tweet,
+                                                         dict_tweets_info,
+                                                         searched_word)
+
+                if type(valid_tweet) is dict:
+                    logging('VALID TWEET !!!!! Ok, we received a dict as return, we may export the results now')
+                    export_infos_to_csv(valid_tweet)
+                    write_json_and_updates_value(useful_variables.control_json,incrementa_contagem_de_falha=False)
+
+                elif type(valid_tweet) is int:
+                    logging('Tweet is not valid, analyzing return:: '+str(valid_tweet))
+                    cases={
+                        -1 : "didn't found the searched_word on tweet.text it self",
+                        -2 : "invalid language (japanese, korean, arabic etc problems to recognize the searched word)",
+                        -3 : "you have already retweeted this Tweet",
+                        -4 : "RateLimitError",
+                        -5 : "tweet was made by the bot's account, we can't retweet stuff made by us"
+                    }
+                    logging(cases.get(valid_tweet,"Invalid return"))
+                    write_json_and_updates_value(useful_variables.control_json,
+                                                 incrementa_contagem_de_falha=True)
+                    continue
+
+                else:
+                    logging('Unexpected return for validate_and_retweet_tweet different than dict or int!! content: '+str(valid_tweet) +'type of return: '+str(type(valid_tweet)))
+                    write_json_and_updates_value(useful_variables.control_json,
+                                                 incrementa_contagem_de_falha=False)
+
+                logging("Waiting 2 min to retrieve another tweet cuz we like safety")
+                time.sleep(60*2) # sleep 2 min, so we dont reach the limit 100 tweets per hour
+    
+    except Exception as error:
+        if 'status code = 401' in str(error):
+            logging('INVALID CREDENTIALS, STOPPING BOT')
+            pymsgbox.alert('INVALID CREDENTIALS on jsoOoooOOooOon!!!', 'Stopping bot',timeout=15000)
+            want_to_insert_credentials = pymsgbox.confirm('Would you like to insert your credentials here? \n or... update credentials on \\bot_files\\controls\\credentials.json', 'INSERT CREDENTIALS?', ["Yes", "No, I'll update the json file"])
+            if want_to_insert_credentials == 'Yes':
+                receive_credentials_overwrite_credential_json()
+                main()
+        else:
+            logging('Unkown error:' +str(error))
+    
+
+    logging('███████╗███╗░░██╗██████╗░  ░█████╗░███████╗  ██╗░░░░░░█████╗░██████╗░')
+    logging('██╔════╝████╗░██║██╔══██╗  ██╔══██╗██╔════╝  ██║░░░░░██╔══██╗██╔══██╗')
+    logging('█████╗░░██╔██╗██║██║░░██║  ██║░░██║█████╗░░  ██║░░░░░███████║██████╔╝')
+    logging('██╔══╝░░██║╚████║██║░░██║  ██║░░██║██╔══╝░░  ██║░░░░░██╔══██║██╔═══╝░')
+    logging('███████╗██║░╚███║██████╔╝  ╚█████╔╝██║░░░░░  ███████╗██║░░██║██║░░░░░')
+    logging('╚══════╝╚═╝░░╚══╝╚═════╝░  ░╚════╝░╚═╝░░░░░  ╚══════╝╚═╝░░╚═╝╚═╝░░░░░')
+    
+    pymsgbox.alert('$$$$$$$$$$$$$$ \n END OF LAP\n $$$$$$$$$$$$$', 'End of times',timeout=40000)
+
+    # bot by: @minhadona, jan.2021
+    # big letters font generator: https://fsymbols.com/generators/tarty/
+
+
+# In[195]:
 
 
 def authenticating(credential):
@@ -18,21 +123,20 @@ def authenticating(credential):
     █▄█ █▄█ ░█░
     """
         # api                • <class 'tweepy.api.API'>     ○ authenticated api
-    
+   
     auth = tweepy.OAuthHandler(credential["api_key"], credential["api_secret"])
     auth.set_access_token(credential["access_token"], credential["access_token_secret"])
-    
+
     api = tweepy.API(auth,wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
     
-    print(type(api))
     return api
 
 
-# In[2]:
+# In[196]:
 
 
-def print_and_retweet_tweet(api,tweet,dict_tweets_info,searched_word):
-    logging('\n\nfunction>>>>>print_and_retweet_tweet')
+def validate_and_retweet_tweet(api, tweet, dict_tweets_info, searched_word):
+    logging('\n\nfunction>>>>>validate_and_retweet_tweet')
     
     """   
     █ █▄░█
@@ -41,22 +145,22 @@ def print_and_retweet_tweet(api,tweet,dict_tweets_info,searched_word):
         # api                • <class 'tweepy.api.API'>    ○ authenticated api
         # tweet              • <tweet object>              ○ one single tweet object and its attributes 
         # dict_tweets_info   • <dictionary>                ○ empty, to be filled with informations from this tweet object
-        # searched_word      • <string>                    ○ seeking term (will be used here to validate the inner of tweet content) 
+        # searched_word      • <string>                    ○ seeking term (will be used here to validate the inner content of the tweet) 
     
     """
     █▀█ █░█ ▀█▀
     █▄█ █▄█ ░█░
     """
-        # -1           ○ didn't found the searched_word on tweet.text it self (maybe )
-        # -2           ○ japanese or korean
+        # -1           ○ didn't found the searched_word on tweet.text it self 
+        # -2           ○ invalid language (japanese, korean, arabic etc problems to recognize the searched word)
         # -3           ○ you have already retweeted this Tweet
         # -4           ○ RateLimitError
-        # -5           ○ you are the owner of this tweet
-        # -6           ○ tweet was made by the bot's account, we can't retweet stuff made by us 
+        # -5           ○ tweet was made by the bot's account, we can't retweet stuff made by us 
         # dict         ○ in a valid situation, returns a populated dictionary containing this tweet's data 
 
     try: 
-        logging('appending infos to dictionary')
+
+        logging('appending infos retrieved to dictionary')
         dict_tweets_info['created_at'].append(str(tweet.created_at))
         dict_tweets_info['tweet_ID'].append(str(tweet.id))
         dict_tweets_info['user'].append(str(tweet.user.screen_name))
@@ -66,59 +170,84 @@ def print_and_retweet_tweet(api,tweet,dict_tweets_info,searched_word):
         dict_tweets_info['source'].append(str(tweet.source_url).replace("http://twitter.com/download/",""))
     
         logging('----------------------------------------')
-        logging('collected informations')
-        logging('----------------------------------------')
- 
-        logging('dict_tweets_info: \n '+str(dict_tweets_info))
+        logging('raw dict_tweets_info after appending: \n '+str(dict_tweets_info))
         logging('----------------------------------------')
         
-        # ----- starting filters ------
-        
-        logging('print_and_retweet_tweet(): better filtering BEFORE retweet')
-        string_tweet_content = "".join(dict_tweets_info['tweet_content'] )
-        if not searched_word in string_tweet_content.lower():
-            logging('NAO ACHOU NA STRING A PALAVRA BUSCADA: '+ searched_word)
-            # NO WAY it's gonna retweet something that has NOT 'zolpidem on it'
-            return -1
+    
+    # ---------------------------------------------------------------------------------------------------------
+    # --------------------------------- FILTERING BEFORE RETWEET ----------------------------------------------
+    # ---------------------------------------------------------------------------------------------------------
+    
+        logging('validate_and_retweet_tweet(): better filtering BEFORE retweet')
 
-        string_lang_content = "".join(dict_tweets_info['language'] )
-        if string_lang_content in ['ja','ko','und','fa','ar']:
-            logging('lingua proibida p dar RT')
-            # NO WAY it's gonna retweet something that is in japanese or korean
+        # -----------------------------------------------------------------------------------------------------
+        # ---------------------------- checking if it's in a translatable language ----------------------------
+        # -----------------------------------------------------------------------------------------------------
+        forbidden_languages_to_retweet = ['ja','ko','und','fa','ar']
+        
+        string_lang_content = "".join(dict_tweets_info['language'] )  # turns list into string to compare
+        if string_lang_content in forbidden_languages_to_retweet:
+            logging('dumb robot, tweet is not in an understandable language so its content will be wrongly evaluated, we stop here')
             return -2
-        else:
-            logging('teoricamente nao esta em japones nem coreano, está em: '+string_lang_content )
+        else: 
+            logging('not in any forbidden language! language is actually:'+string_lang_content)
+            
+        # -----------------------------------------------------------------------------------------------------
+        # ---------------------------- checking if the searched word really is on tweet content ---------------
+        # -----------------------------------------------------------------------------------------------------
+
+        string_tweet_content = "".join(dict_tweets_info['tweet_content'] ) # turns list into string to compare
+        if not searched_word in string_tweet_content.lower():
+            logging('we havent found '+ searched_word + ' on tweet content')
+            # NO WAY it's gonna retweet something that has NOT the word on the text
+            return -1
+        
+        # -----------------------------------------------------------------------------------------------------
+        # ------------------------- checking if this tweet's user is also the authenticated user --------------
+        # -------------------------------- (so we dont retweet our own tweets) --------------------------------
         
         my_user_object = api.me()
         if str(my_user_object.screen_name) == str(tweet.user.screen_name):
-            logging('this tweet was made by yourself using your bot profile or is an old RETWEET !!we wont retweet it again')
-            return -6
+            logging('you are @'+ str(my_user_object.screen_name))
+            logging('this tweet was made by yourself using your bot profile or is an old RETWEET!! both cases we wont retweet it again')
+            return -5
         else:
             logging('this user is not you! you: '+ str(my_user_object.screen_name) + ' VS the tweeter: '+ str(tweet.user.screen_name) +', that s great')
         
+    # ---------------------------------------------------------------------------------------------------------
+    # ---------------------------------- RETWEET ACTION ! -----------------------------------------------------
+    # ---------------------------------------------------------------------------------------------------------
         logging('retweeting ←←←←←←←←←←←←←')
         api.retweet(tweet.id)
-        logging('→→→→→→→→→→→→→ retweeted')
+        logging('→→→→→→→→→→→→→ retweeted') # if an exception is raised during retweet method, we wont arrive here
         return dict_tweets_info
     
     except tweepy.TweepError as e: 
         if e.api_code == 327:
-            logging('You have already retweeted this Tweet')
+            logging('Exception Code 327: You have already retweeted this Tweet')
             return -3
         
     except tweepy.RateLimitError as e:
-        logging('Excedeu limite por tempo?')
-        logging('erro: '+str(e))
-        logging('DORMINDO POR QUINZE MINUTOS')
-        time.sleep(60 * 15)  # we supposedly saw a rate limit that is ignored after 15 min ??? so we should wait 15 min to retry 
+        logging('RateLimitError')
+        logging('Unknown error: '+str(e))
+        logging('according to internet, sleeping for 15 min should solve...')
+        time.sleep(60 * 15)  # we saw rate limit is ignored after 15 min ??? ///not confirmed hypothesis///
         return -4
 
 
-# In[3]:
+# In[197]:
 
 
-def write_json_and_updates_value(path,incrementa_contagem_de_falha=False,inicializar = False):
+def write_json_and_updates_value(path, incrementa_contagem_de_falha=False, inicializar = False):
     logging('\n\nfunction>>>>>write_json_and_updates_value')
+    
+    """   
+    █ █▄░█
+    █ █░▀█    
+    """
+        # path                           • <string>          ○ control json path
+        # incrementa_contagem_de_falha   • <bool>            ○ boolean flag to update or not a specific key
+        # inicializar                    • <bool>            ○ boolean flag to reset (set to 0) or not all the keys
     
     now = datetime.now()
     current_date = now.strftime("%d/%m/%Y")
@@ -176,35 +305,58 @@ def write_json_and_updates_value(path,incrementa_contagem_de_falha=False,inicial
                         f.write(contenting)
 
 
-# In[4]:
+# In[198]:
 
 
 def export_infos_to_csv(valid_tweet):
     logging('\n\nfunction>>>>>exporting_infos_to_csv')
+        
+    """   
+    █ █▄░█
+    █ █░▀█    
+    """
+        # valid tweet        • <dictionary>          ○ dictionary holding all informations we retrieved from one specific tweet
+    
+    # -------------------------------------------------------------------------------------------------------------
+    # ------------------------- fetch today's DATE in DD/MM/YYY format and turns into DD-MM-YYYY ------------------
+    # -------------------------------------------------------------------------------------------------------------
     
     now = datetime.now()
-    current_directory = os.getcwd()  
     timestamp = now.strftime("%d/%m/%Y").replace("/","-").replace(':',"-").replace(',','--').replace(" ","")
 
-    CSV_path = current_directory+'\\arquivos_bot\\dados_exportados\\dados_'+timestamp+'.csv'
-    logging('log path: '+str(CSV_path))
+    CSV_path = useful_variables.exported_data_folder+'\\dados_'+timestamp+'.csv'
+    logging("today's CSV path: "+str(CSV_path))
 
-    logging('dict_tweets_info : '+str(valid_tweet))
+    logging('valid_tweet : '+str(valid_tweet))
 
-    # pegando os valores do dicionario e jogando em lista pq senao ele da apend no dicionario inteiro, linha de key e depois linha de value PRA CADA tweet
-    lista_valores_atuais = []
+    # -------------------------------------------------------------------------------------------------------------
+    # -------- to exclusively append tweet's informations, we CANT append dict directly, otherwise the function ---
+    # ------------- will append header (dict keys) row + informations (dict values) row for EVERY tweet -----------
+    # --------- so we turn the dict values into a list and we only append header if it's a new CSV (new day) ------
+    # -------------------------------------------------------------------------------------------------------------
+    
+        # -----------------------------------------------------------------------------------------------------------
+        # ---------------------------------- turning dict values into a list ----------------------------------------
+        # -----------------------------------------------------------------------------------------------------------
+        
+    dict_values_in_list_version = []
     for key, value in valid_tweet.items():
-        lista_valores_atuais.append("".join(value))
+        dict_values_in_list_version.append("".join(value))
 
-    # forcing Tweet ID to be written as string, so it doesnt truncate as scientific notation
-    lista_valores_atuais[1] = '\''+lista_valores_atuais[1]
+        # -----------------------------------------------------------------------------------------------------------
+        # -------- forcing Tweet ID to be written as string on sheet, so it doesnt truncate as scientific notation --
+        # -----------------------------------------------------------------------------------------------------------
+        
+    dict_values_in_list_version[1] = '\''+dict_values_in_list_version[1]
 
-    logging('LISTA_VALORES_ATUAIS: '+str(lista_valores_atuais))
+    logging('dict_values_in_list_version: '+str(dict_values_in_list_version))
 
-    # se arquivo do dia já existe, vai dar append apenas no conteúdo daquele tweet, caso contrário, 
-    # vai criar o arquivo e vai dar append
-    # no header e depois no tweet 
-
+        # -----------------------------------------------------------------------------------------------------------
+        # --------- if today's CSV already exists, we will append only this specific tweet's DETAILS to file --------
+        # ----------------- elseways we append the header (creating a new file) -------------------------------------
+        # ------------------- and THEN append current tweet's details normally --------------------------------------
+        # -----------------------------------------------------------------------------------------------------------
+    
     if not os.path.exists(CSV_path):
         logging('today s csv does not exist yet, creating it and appending header')
         header_csv = ['created_at','tweet_ID','user','tweet_content','place','language','source'] 
@@ -213,41 +365,52 @@ def export_infos_to_csv(valid_tweet):
             wr.writerow(header_csv)
             
     with open(CSV_path, "a",encoding="utf-8", newline='') as file:
-        logging('writing lista_valores_atuais anyways')
+        logging('writing tweet details on CSV file')
         wr = csv.writer(file)
-        wr.writerow(lista_valores_atuais)
-
-    # df = pd.DataFrame(lista_valores_atuais) # turning into data frame
-    # df.to_csv(path_or_buf = CSV_path, mode='a',index=False, cols = header_csv)
+        wr.writerow(dict_values_in_list_version)
 
 
-# In[5]:
+# In[199]:
 
 
 def logging(text_to_log=""):
     
-    # converte parâmetro que ele quer escrever no log em string, caso tenha sido enviado em outro formato
+    # -----------------------------------------------------------------------------------------------------------
+    # ------------------- converts into string the parameter we want to write on log file -----------------------
+    # ------------------------- just in case we received another variable type ----------------------------------
+    # -----------------------------------------------------------------------------------------------------------
+    
     text_to_log = str(text_to_log)
     
-    # prepara data e timestamp pra dar append no arquivo de log (ou escrever um novo) + timestamp no conteúdo do arquivo
+    # -----------------------------------------------------------------------------------------------------------
+    # --------------------------- fetchs timestamp to append within received text -------------------------------
+    # ---------- fetchs current date to create new log file or append to the current one ------------------------
+    # -----------------------------------------------------------------------------------------------------------
+
     now = datetime.now()
     date = now.strftime("%d/%m/%Y").replace("/","-")
     timestamp = now.strftime("%d/%m/%Y, %H:%M:%S")
-    
-    # busca diretório onde o robô está rodando e formata o path pro log do dia corrente
-    current_directory = os.getcwd()  
-    log_path = current_directory+'\\arquivos_bot\\logs\\log_'+date+'.txt'
 
-    # se arquivo do dia já existir, só escreve nele o timestamp + conteúdo do parámetro
-    # caso contrário, cria o arquivo de log daquele dia 
+        # -----------------------------------------------------------------------------------------------------
+        # ---- retrieves directory where our robot is running and concatenate the path to the current day's ---
+        # -----------------------------------------------------------------------------------------------------
+    
+    log_path = useful_variables.logs_folder+'\\log_'+date+'.txt'
+    
+        # -----------------------------------------------------------------------------------------------------
+        # ----- appending to file of the day: timestamp + parameter's content ---------------------------------
+        # -----------------------------------------------------------------------------------------------------
+
     with open(log_path, 'a+',encoding="utf-8") as log_file:
         log_file.write(timestamp+ ' - ' + text_to_log+'\n')
     
-    # além de escrever no arquivo, printa no jupyter
+        # -----------------------------------------------------------------------------------------------------
+        # ------ printing on console ----------------------------------------------------------------------------
+        # -----------------------------------------------------------------------------------------------------
     print(timestamp+ ' - ' + text_to_log)
 
 
-# In[6]:
+# In[200]:
 
 
 def translate_special_text_to_ascii(original_text):
@@ -262,138 +425,115 @@ def translate_special_text_to_ascii(original_text):
     return translated_text
 
 
-# In[12]:
+# In[201]:
 
 
-def main():
+def receive_credentials_overwrite_credential_json():                
+    logging('\n\nfunction>>>>>receive_credentials_overwrite_credential_json')
     
-    # ----------------------------------------------------------------------------------------------------------
-    # ---------------------  CRIA PASTAS QUE O ROBÔ VAI USAR NO DIRETÓRIO DO SCRIPT  ---------------------------
-    # ----------------------------------------------------------------------------------------------------------
-    # ------------------------- e json de controle também, caso nada disso exista ------------------------------
-    # ----------------------------------------------------------------------------------------------------------
-    
-    current_directory = os.getcwd()
-    if not os.path.exists(current_directory+'\\arquivos_bot\\logs'):
-        pymsgbox.alert(text='Criando pasta de logs', title='Preparando bot', button='OK',timeout=4500)
-        os.makedirs(current_directory+'\\arquivos_bot\\logs')
-        logging("Preparando ambiente")
-        logging("Criando pasta de logs")
-    
-    if not os.path.exists(current_directory+'\\arquivos_bot\\controle'):
-        pymsgbox.alert(text='Criando pasta de controle', title='Preparando bot', button='OK',timeout=4500)
-        os.makedirs(current_directory+'\\arquivos_bot\\controle')
-        logging("Criando pasta de controle")
+    new_api_key = pymsgbox.prompt('Insert your API KEY', default='3x4mPL3-j13j2o38s09dsaf')
+    new_api_secret = pymsgbox.prompt('Insert your API SECRET', default='3x4mPL3-j13j2o38s09dsaf')
+    new_bearer_token = pymsgbox.prompt('Insert your BEARER TOKEN', default='3x4mPL3-j13j2o38s09dsaf')
+    new_access_token = pymsgbox.prompt('Insert your ACCESS TOKEN', default='3x4mPL3-j13j2o38s09dsaf')
+    new_access_token_secret = pymsgbox.prompt('Insert your ACCESS TOKEN SECRET', default='3x4mPL3-j13j2o38s09dsaf')
+ 
+    with open(useful_variables.credentials_json, 'w') as f:
+        try:
+            content = {"api_key" : new_api_key,
+                       "api_secret" : new_api_secret,
+                       "bearer_token" : new_bearer_token,
+                       "access_token" : new_access_token,
+                       "access_token_secret" : new_access_token_secret}
+            json.dump(content, f)
 
-    if not os.path.exists(current_directory+'\\arquivos_bot\\dados_exportados'):
-        pymsgbox.alert(text='Criando pasta de dados exportados', title='Preparando bot', button='OK',timeout=4500)
-        os.makedirs(current_directory+'\\arquivos_bot\\dados_exportados')
-        logging("Criando pasta de dados exportados")
-    
-    
-    # checking if control json exists, otherwise we create it
-    if not os.path.exists(current_directory+'\\arquivos_bot\\controle\\amount_of_tweets_from_today.json'):
-        logging("arquivo json não encontrado")
-        now = datetime.now()
-        date = now.strftime("%d/%m/%Y")
-        write_json_and_updates_value(current_directory+'\\arquivos_bot\\controle\\amount_of_tweets_from_today.json',incrementa_contagem_de_falha=False,inicializar = True)
-    
-    # checking if credentials json exists, otherwise we create it
-    
-    with open(current_directory+'\\arquivos_bot\\credentials.json') as credentials_file:
-        credentials = json.load(credentials_file)
-        #supposed to be a dictionary 
-        logging('tipo da variavel credential: '+str(type(credentials)))
-        logging('valor credential:  '+ str(credentials))
-                             
-    pymsgbox.alert('Pastas necessárias para o robô conferidas, iniciando o bot', 'Starting bot',timeout=5000)
-    logging("░██████╗████████╗░█████╗░██████╗░████████╗██╗███╗░░██╗░██████╗░")
-    logging("██╔════╝╚══██╔══╝██╔══██╗██╔══██╗╚══██╔══╝██║████╗░██║██╔════╝░")
-    logging("╚█████╗░░░░██║░░░███████║██████╔╝░░░██║░░░██║██╔██╗██║██║░░██╗░")
-    logging("░╚═══██╗░░░██║░░░██╔══██║██╔══██╗░░░██║░░░██║██║╚████║██║░░╚██╗")
-    logging("██████╔╝░░░██║░░░██║░░██║██║░░██║░░░██║░░░██║██║░╚███║╚██████╔╝")
-    logging("╚═════╝░░░░╚═╝░░░╚═╝░░╚═╝╚═╝░░╚═╝░░░╚═╝░░░╚═╝╚═╝░░╚══╝░╚═════╝░")
-    
-#     credentials =  {
-#                     "api_key" : credentials.API_KEY,
-#                     "api_secret" : credentials.API_SECRET,
-#                     "bearer_token" : credentials.BEARER_TOKEN,
-#                     "access_token" : credentials.ACCESS_TOKEN,
-#                     "access_token_secret" : credentials.ACCESS_TOKEN_SECRET
-#                     }
-    
-    api = authenticating(credentials)
+        except json.JSONDecodeError:
+            logging('decode error but will try raw writing')
+            f.write(contenting)
 
-    words = ['zolpidem','ambien']
+
+# In[202]:
+
+
+def checks_if_necessary_files_exist_otherwise_create_them():
+    logging('\n\nfunction>>>>>checks_if_necessary_files_exist_otherwise_create_them')
+    # ------------------------------------------------------------------------------------------
+    # ---------- checking if control json exists, otherwise we create it -------------------
+    # ------------------------------------------------------------------------------------------
+
+    if not os.path.exists(useful_variables.control_json):
+        logging("control json not found, gotta create it")
+        write_json_and_updates_value(useful_variables.control_json,
+                                     incrementa_contagem_de_falha=False,
+                                     inicializar = True)
+    else:
+        logging(str(useful_variables.control_json) + ' already exists')
+
+    # ------------------------------------------------------------------------------------------    
+    # ---------- checking if credentials json exists, otherwise we create it -------------------
+    # ------------------------------------------------------------------------------------------
     
-    for searched_word in words:
+    credentials_path = useful_variables.credentials_json
+    if not os.path.exists(credentials_path):
+        logging("credentials json not found, gotta create it using a template")
         
-        for tweet in tweepy.Cursor(api.search, q = searched_word ).items(1100):
-            
-            dict_tweets_info = {
-            "created_at": [],
-            "tweet_ID": [],
-            "user": [],
-            "tweet_content": [],
-            "place": [],
-            "language": [],
-            "source": [] 
-        }
+        with open(credentials_path, 'w') as f:
+            try:
+                content = {"api_key" : "examplen9masss23423553252ffffffe",
+                           "api_secret" : "examplefa1asfsafsafsa32434fdfsfsdfddsfsfddfdfsfd",
+                           "bearer_token" : "exampleAAAAAAAAAADFDSFGDDGGDAGDFHDFHBV424G4023fe032402320F242WER355W31tg21e454F4E4ER4Esfdsdfdfs",
+                           "access_token" : "example13371788gfdfgdfgdfgd344544gdfgfdsj5jytjjy",
+                           "access_token_secret" : "examplect42gdfhf5y66hsvbbgfhC91Rhfghgf45t4555552432324235"}
+                json.dump(content, f)
 
-            with open(current_directory+'\\arquivos_bot\\controle\\amount_of_tweets_from_today.json') as json_file:
-                tweets_status = json.load(json_file)
-                if tweets_status["amount_of_tweets"] == 999 and tweets_status['current_date'] == date:
-                    sys.exit('DAILY LIMIT REACHED, CANT RETWEET MORE THAN 1000 TWEETS')
-
-            valid_tweet = print_and_retweet_tweet(api,tweet,dict_tweets_info,searched_word)
-
-            if isinstance(valid_tweet,dict):
-                logging('VALID TWEET !!!!! Ok, we received a dict as return, we may export the results now')
-                export_infos_to_csv(valid_tweet)
-                write_json_and_updates_value(current_directory+'\\arquivos_bot\\controle\\amount_of_tweets_from_today.json',incrementa_contagem_de_falha=False)
+            except json.JSONDecodeError:
+                logging('decode error but will try raw writing')
+                f.write(contenting)
                 
-            elif isinstance(valid_tweet,int):
-                logging('Tweet is not valid, analyzing return:: '+str(valid_tweet))
-                cases={
-                    -1:"didn't found the searched_word on tweet.text it self ",
-                    -2:"japanese or korean language",
-                    -3:'you have already retweeted this Tweet',
-                    -4:'RateLimitError',
-                    -5:'you are the owner of this tweet',
-                    -6:"tweet was made by the bot's account, we can't retweet stuff made by us"
-                }
-                logging(cases.get(valid_tweet,"Invalid return"))
-                write_json_and_updates_value(current_directory+'\\arquivos_bot\\controle\\amount_of_tweets_from_today.json',incrementa_contagem_de_falha=True)
-                continue
-                
-            else:
-                logging('Unexpected return for print_and_retweet_tweet different than dict or int!! content: '+str(valid_tweet))
-                write_json_and_updates_value(current_directory+'\\arquivos_bot\\controle\\amount_of_tweets_from_today.json',incrementa_contagem_de_falha=False)
-            
-            logging("Waiting 2 min for retrieve another tweet cuz we like safety")
-            time.sleep(60*2) # sleep 2 min, so we dont reach the limit 100 tweets per hour
+    else:
+        logging(str(useful_variables.credentials_json) + ' already exists')
         
-    
-    logging('███████╗███╗░░██╗██████╗░  ░█████╗░███████╗  ██╗░░░░░░█████╗░██████╗░')
-    logging('██╔════╝████╗░██║██╔══██╗  ██╔══██╗██╔════╝  ██║░░░░░██╔══██╗██╔══██╗')
-    logging('█████╗░░██╔██╗██║██║░░██║  ██║░░██║█████╗░░  ██║░░░░░███████║██████╔╝')
-    logging('██╔══╝░░██║╚████║██║░░██║  ██║░░██║██╔══╝░░  ██║░░░░░██╔══██║██╔═══╝░')
-    logging('███████╗██║░╚███║██████╔╝  ╚█████╔╝██║░░░░░  ███████╗██║░░██║██║░░░░░')
-    logging('╚══════╝╚═╝░░╚══╝╚═════╝░  ░╚════╝░╚═╝░░░░░  ╚══════╝╚═╝░░╚═╝╚═╝░░░░░')
-    
-    pymsgbox.alert('$$$$$$$$$$$$$$ \n FIM DA LAP\n $$$$$$$$$$$$$', 'End of times',timeout=40000)
-
-    
-    
-    # bot by: @minhadona, jan.2021
-    # big letters font generator: https://fsymbols.com/generators/tarty/
-    
 
 
-# In[13]:
+# In[203]:
+
+
+def checks_if_necessary_folders_exist_otherwise_create_them():
+    logging('\n\nfunction>>>>>checks_if_necessary_folders_exist_otherwise_create_them')
+    # ----------------------------------------------------------------------------------------------
+    # ---------------------  CREATES INTO SCRIPT DIRECTORY ALL NECESSARY FOLDERS  ------------------
+    # ----------------------------------------------------------------------------------------------
+    
+    try:
+        if not os.path.exists(useful_variables.logs_folder):
+            pymsgbox.alert(text="Creating logs' folder", title='Setting bot up', button='OK',timeout=4500)
+            os.makedirs(useful_variables.logs_folder)
+            logging("Creating logs' folder")
+        else:
+            logging(str(useful_variables.logs_folder) + ' already exists')
+
+        if not os.path.exists(useful_variables.controls_folder):
+            pymsgbox.alert(text='Creating controls folder', title='Setting bot up', button='OK',timeout=4500)
+            os.makedirs(useful_variables.controls_folder)
+            logging("Creating controls folder")
+        else:
+            logging(str(useful_variables.controls_folder) + ' already exists')
+
+        if not os.path.exists(useful_variables.exported_data_folder):
+            pymsgbox.alert(text='Creating exported_data folder', title='Setting bot up', button='OK',timeout=4500)
+            os.makedirs(useful_variables.exported_data_folder)
+            logging("Creating exported_data folder")
+        else:
+            logging(str(useful_variables.exported_data_folder) + ' already exists')
+    
+    except Exception as error:
+        logging('Unknown error: '+str(error))
+
+
+# In[204]:
 
 
 import import_ipynb
+import useful_variables
 import tweepy
 import time
 from datetime import date, datetime 
