@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[41]:
+# In[1]:
 
 
 def authenticating(credential):
@@ -17,7 +17,7 @@ def authenticating(credential):
     █▀█ █░█ ▀█▀
     █▄█ █▄█ ░█░
     """
-        # api                • <class 'tweepy.api.API'>    ○ authenticated api
+        # api                • <class 'tweepy.api.API'>     ○ authenticated api
     
     auth = tweepy.OAuthHandler(credential["api_key"], credential["api_secret"])
     auth.set_access_token(credential["access_token"], credential["access_token_secret"])
@@ -28,7 +28,7 @@ def authenticating(credential):
     return api
 
 
-# In[42]:
+# In[2]:
 
 
 def print_and_retweet_tweet(api,tweet,dict_tweets_info,searched_word):
@@ -114,7 +114,7 @@ def print_and_retweet_tweet(api,tweet,dict_tweets_info,searched_word):
         return -4
 
 
-# In[43]:
+# In[3]:
 
 
 def write_json_and_updates_value(path,incrementa_contagem_de_falha=False,inicializar = False):
@@ -176,7 +176,7 @@ def write_json_and_updates_value(path,incrementa_contagem_de_falha=False,inicial
                         f.write(contenting)
 
 
-# In[44]:
+# In[4]:
 
 
 def export_infos_to_csv(valid_tweet):
@@ -221,7 +221,7 @@ def export_infos_to_csv(valid_tweet):
     # df.to_csv(path_or_buf = CSV_path, mode='a',index=False, cols = header_csv)
 
 
-# In[45]:
+# In[5]:
 
 
 def logging(text_to_log=""):
@@ -247,7 +247,7 @@ def logging(text_to_log=""):
     print(timestamp+ ' - ' + text_to_log)
 
 
-# In[46]:
+# In[6]:
 
 
 def translate_special_text_to_ascii(original_text):
@@ -262,7 +262,7 @@ def translate_special_text_to_ascii(original_text):
     return translated_text
 
 
-# In[49]:
+# In[12]:
 
 
 def main():
@@ -298,7 +298,14 @@ def main():
         date = now.strftime("%d/%m/%Y")
         write_json_and_updates_value(current_directory+'\\arquivos_bot\\controle\\amount_of_tweets_from_today.json',incrementa_contagem_de_falha=False,inicializar = True)
     
+    # checking if credentials json exists, otherwise we create it
     
+    with open(current_directory+'\\arquivos_bot\\credentials.json') as credentials_file:
+        credentials = json.load(credentials_file)
+        #supposed to be a dictionary 
+        logging('tipo da variavel credential: '+str(type(credentials)))
+        logging('valor credential:  '+ str(credentials))
+                             
     pymsgbox.alert('Pastas necessárias para o robô conferidas, iniciando o bot', 'Starting bot',timeout=5000)
     logging("░██████╗████████╗░█████╗░██████╗░████████╗██╗███╗░░██╗░██████╗░")
     logging("██╔════╝╚══██╔══╝██╔══██╗██╔══██╗╚══██╔══╝██║████╗░██║██╔════╝░")
@@ -307,15 +314,15 @@ def main():
     logging("██████╔╝░░░██║░░░██║░░██║██║░░██║░░░██║░░░██║██║░╚███║╚██████╔╝")
     logging("╚═════╝░░░░╚═╝░░░╚═╝░░╚═╝╚═╝░░╚═╝░░░╚═╝░░░╚═╝╚═╝░░╚══╝░╚═════╝░")
     
-    credential =  {
-                    "api_key" : credentials.API_KEY,
-                    "api_secret" : credentials.API_SECRET,
-                    "bearer_token" : credentials.BEARER_TOKEN,
-                    "access_token" : credentials.ACCESS_TOKEN,
-                    "access_token_secret" : credentials.ACCESS_TOKEN_SECRET
-                    }
+#     credentials =  {
+#                     "api_key" : credentials.API_KEY,
+#                     "api_secret" : credentials.API_SECRET,
+#                     "bearer_token" : credentials.BEARER_TOKEN,
+#                     "access_token" : credentials.ACCESS_TOKEN,
+#                     "access_token_secret" : credentials.ACCESS_TOKEN_SECRET
+#                     }
     
-    api = authenticating(credential)
+    api = authenticating(credentials)
 
     words = ['zolpidem','ambien']
     
@@ -383,11 +390,10 @@ def main():
     
 
 
-# In[50]:
+# In[13]:
 
 
 import import_ipynb
-import credentials
 import tweepy
 import time
 from datetime import date, datetime 
@@ -399,4 +405,10 @@ import sys
 import csv
 
 main()
+
+
+# In[ ]:
+
+
+
 
