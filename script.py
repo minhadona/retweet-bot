@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# ##    Bot by: @minhadona
+#     First Release: 1 jan 2021 
+#     big text letters font generator: https://fsymbols.com/generators/tarty/
+
 # In[194]:
 
 
@@ -101,9 +105,6 @@ def main():
     logging('╚══════╝╚═╝░░╚══╝╚═════╝░  ░╚════╝░╚═╝░░░░░  ╚══════╝╚═╝░░╚═╝╚═╝░░░░░')
     
     pymsgbox.alert('$$$$$$$$$$$$$$ \n END OF LAP\n $$$$$$$$$$$$$', 'End of times',timeout=40000)
-
-    # bot by: @minhadona, jan.2021
-    # big letters font generator: https://fsymbols.com/generators/tarty/
 
 
 # In[195]:
