@@ -5,21 +5,24 @@
 #     First Release: 1 jan 2021 
 #     big text letters font generator: https://fsymbols.com/generators/tarty/
 
-# In[194]:
+# In[151]:
 
 
 def main():
     
-    checks_if_necessary_folders_exist_otherwise_create_them()
-    checks_if_necessary_files_exist_otherwise_create_them()
-    
+    checking = checks_if_necessary_folders_exist_otherwise_create_them()
+    checking = checks_if_necessary_files_exist_otherwise_create_them()
+    if not type(checking) is dict:
+        print('checking: '+str(checking))
+        raise TypeError('Error: necessary files cannot be created or validated')
+        
     # ----------------------------------------------------------------------------------
     # ---------------- populating dictionary with API credentials from json ------------
     # ----------------------------------------------------------------------------------
     
     with open(useful_variables.credentials_json) as credentials_file:
         credentials = json.load(credentials_file)
-        logging('credential value: '+ str(credentials))
+        #logging('credential value: '+ str(credentials))
                              
     pymsgbox.alert('Starting bot!', 'Starting bot',timeout=5000)
     logging("░██████╗████████╗░█████╗░██████╗░████████╗██╗███╗░░██╗░██████╗░")
@@ -31,8 +34,12 @@ def main():
     
     try: 
         api = authenticating(credentials)
-
-        words = ['zolpidem','ambien']
+        
+        with open(useful_variables.attributes_json) as json_file:
+            dict_attributes_info = json.load(json_file)
+            
+        words = dict_attributes_info["words_to_search"]
+        logging('these are the words we r gonna search: '+str(words))
 
         for searched_word in words:
 
@@ -49,13 +56,15 @@ def main():
             }
 
                 with open(useful_variables.control_json) as json_file:
-                    tweets_status = json.load( json_file)
+                    tweets_status = json.load(json_file)
                     if tweets_status["amount_of_tweets"] == 999 and tweets_status['current_date'] == date:
                         sys.exit('DAILY LIMIT REACHED, CANT RETWEET MORE THAN 1000 TWEETS')
 
+                                       
                 valid_tweet = validate_and_retweet_tweet(api,
                                                          tweet,
                                                          dict_tweets_info,
+                                                         dict_attributes_info,
                                                          searched_word)
 
                 if type(valid_tweet) is dict:
@@ -70,7 +79,8 @@ def main():
                         -2 : "invalid language (japanese, korean, arabic etc problems to recognize the searched word)",
                         -3 : "you have already retweeted this Tweet",
                         -4 : "RateLimitError",
-                        -5 : "tweet was made by the bot's account, we can't retweet stuff made by us"
+                        -5 : "tweet was made by the bot's account, we can't retweet stuff made by us",
+                        -6 : "tweet is not in desired language"
                     }
                     logging(cases.get(valid_tweet,"Invalid return"))
                     write_json_and_updates_value(useful_variables.control_json,
@@ -107,7 +117,7 @@ def main():
     pymsgbox.alert('$$$$$$$$$$$$$$ \n END OF LAP\n $$$$$$$$$$$$$', 'End of times',timeout=40000)
 
 
-# In[195]:
+# In[152]:
 
 
 def authenticating(credential):
@@ -133,10 +143,10 @@ def authenticating(credential):
     return api
 
 
-# In[196]:
+# In[153]:
 
 
-def validate_and_retweet_tweet(api, tweet, dict_tweets_info, searched_word):
+def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_info, searched_word):
     logging('\n\nfunction>>>>>validate_and_retweet_tweet')
     
     """   
@@ -153,10 +163,11 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, searched_word):
     █▄█ █▄█ ░█░
     """
         # -1           ○ didn't found the searched_word on tweet.text it self 
-        # -2           ○ invalid language (japanese, korean, arabic etc problems to recognize the searched word)
+        # -2           ○ forbidden language (japanese, korean, arabic etc problems to recognize the searched word)
         # -3           ○ you have already retweeted this Tweet
         # -4           ○ RateLimitError
         # -5           ○ tweet was made by the bot's account, we can't retweet stuff made by us 
+        # -6           ○ tweet is not in desired language
         # dict         ○ in a valid situation, returns a populated dictionary containing this tweet's data 
 
     try: 
@@ -180,14 +191,26 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, searched_word):
     # ---------------------------------------------------------------------------------------------------------
     
         logging('validate_and_retweet_tweet(): better filtering BEFORE retweet')
-
-        # -----------------------------------------------------------------------------------------------------
-        # ---------------------------- checking if it's in a translatable language ----------------------------
-        # -----------------------------------------------------------------------------------------------------
-        forbidden_languages_to_retweet = ['ja','ko','und','fa','ar']
         
         string_lang_content = "".join(dict_tweets_info['language'] )  # turns list into string to compare
-        if string_lang_content in forbidden_languages_to_retweet:
+        # -----------------------------------------------------------------------------------------------------
+        # ---------------------------- checking if it's in one of the ENFORCED languages ----------------------
+        # -----------------------------------------------------------------------------------------------------        
+        if dict_attributes_info["restrict_tweets_to_these_languages"]:
+            # only comes here if list is not empty! we have to enforce the languages on the list
+            logging('these are the current enforced languages: '+str(dict_attributes_info["restrict_tweets_to_these_languages"]))
+            if not string_lang_content in dict_attributes_info["restrict_tweets_to_these_languages"]:
+                logging('tweet is not in enforced languages list, we wont retweet any other language!')
+                return -6
+            else: 
+                logging('we have restrictions and we are ok, language of this tweet is: '+string_lang_content)        
+        else:
+            logging('RESTRICTION LIST IS EMPTY, WE DONT NEED TO ENFORCE ANY LANGUAGE')
+        # -----------------------------------------------------------------------------------------------------
+        # ---------------------------- checking if it's in one of the FORBIDDEN languages ---------------------
+        # -----------------------------------------------------------------------------------------------------
+        
+        if string_lang_content in dict_attributes_info["forbidden_languages_to_retweet"]:
             logging('dumb robot, tweet is not in an understandable language so its content will be wrongly evaluated, we stop here')
             return -2
         else: 
@@ -236,7 +259,7 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, searched_word):
         return -4
 
 
-# In[197]:
+# In[154]:
 
 
 def write_json_and_updates_value(path, incrementa_contagem_de_falha=False, inicializar = False):
@@ -306,7 +329,7 @@ def write_json_and_updates_value(path, incrementa_contagem_de_falha=False, inici
                         f.write(contenting)
 
 
-# In[198]:
+# In[155]:
 
 
 def export_infos_to_csv(valid_tweet):
@@ -371,7 +394,7 @@ def export_infos_to_csv(valid_tweet):
         wr.writerow(dict_values_in_list_version)
 
 
-# In[199]:
+# In[156]:
 
 
 def logging(text_to_log=""):
@@ -411,7 +434,7 @@ def logging(text_to_log=""):
     print(timestamp+ ' - ' + text_to_log)
 
 
-# In[200]:
+# In[157]:
 
 
 def translate_special_text_to_ascii(original_text):
@@ -426,7 +449,7 @@ def translate_special_text_to_ascii(original_text):
     return translated_text
 
 
-# In[201]:
+# In[158]:
 
 
 def receive_credentials_overwrite_credential_json():                
@@ -452,50 +475,7 @@ def receive_credentials_overwrite_credential_json():
             f.write(contenting)
 
 
-# In[202]:
-
-
-def checks_if_necessary_files_exist_otherwise_create_them():
-    logging('\n\nfunction>>>>>checks_if_necessary_files_exist_otherwise_create_them')
-    # ------------------------------------------------------------------------------------------
-    # ---------- checking if control json exists, otherwise we create it -------------------
-    # ------------------------------------------------------------------------------------------
-
-    if not os.path.exists(useful_variables.control_json):
-        logging("control json not found, gotta create it")
-        write_json_and_updates_value(useful_variables.control_json,
-                                     incrementa_contagem_de_falha=False,
-                                     inicializar = True)
-    else:
-        logging(str(useful_variables.control_json) + ' already exists')
-
-    # ------------------------------------------------------------------------------------------    
-    # ---------- checking if credentials json exists, otherwise we create it -------------------
-    # ------------------------------------------------------------------------------------------
-    
-    credentials_path = useful_variables.credentials_json
-    if not os.path.exists(credentials_path):
-        logging("credentials json not found, gotta create it using a template")
-        
-        with open(credentials_path, 'w') as f:
-            try:
-                content = {"api_key" : "examplen9masss23423553252ffffffe",
-                           "api_secret" : "examplefa1asfsafsafsa32434fdfsfsdfddsfsfddfdfsfd",
-                           "bearer_token" : "exampleAAAAAAAAAADFDSFGDDGGDAGDFHDFHBV424G4023fe032402320F242WER355W31tg21e454F4E4ER4Esfdsdfdfs",
-                           "access_token" : "example13371788gfdfgdfgdfgd344544gdfgfdsj5jytjjy",
-                           "access_token_secret" : "examplect42gdfhf5y66hsvbbgfhC91Rhfghgf45t4555552432324235"}
-                json.dump(content, f)
-
-            except json.JSONDecodeError:
-                logging('decode error but will try raw writing')
-                f.write(contenting)
-                
-    else:
-        logging(str(useful_variables.credentials_json) + ' already exists')
-        
-
-
-# In[203]:
+# In[159]:
 
 
 def checks_if_necessary_folders_exist_otherwise_create_them():
@@ -530,7 +510,105 @@ def checks_if_necessary_folders_exist_otherwise_create_them():
         logging('Unknown error: '+str(error))
 
 
-# In[204]:
+# In[160]:
+
+
+def checks_if_necessary_files_exist_otherwise_create_them():
+    logging('\n\nfunction>>>>>checks_if_necessary_files_exist_otherwise_create_them')
+    
+    # -1    invalid attributes: some value on attributes dict is not list type ('a' :   ['LIST','LIST'])
+    # -2    invalid attributes: exclude a language from retweeting and ask to retweet the same language is contraditory
+    # dict  success to create and validate all json files
+
+    # ------------------------------------------------------------------------------------------
+    # ---------- checking if control json exists, otherwise we create it -------------------
+    # ------------------------------------------------------------------------------------------
+    control_json = useful_variables.control_json
+    if not os.path.exists(control_json):
+        logging("control json not found, gotta create it")
+        write_json_and_updates_value(control_json,
+                                     incrementa_contagem_de_falha = False,
+                                     inicializar = True)
+    else:
+        logging(str(control_json) + ' already exists')
+
+    # ------------------------------------------------------------------------------------------    
+    # ---------- checking if credentials json exists, otherwise we create it -------------------
+    # ------------------------------------------------------------------------------------------
+    
+    credentials_json = useful_variables.credentials_json
+    if not os.path.exists(credentials_json):
+        logging("credentials json not found, gotta create it using a template")
+        
+        with open(credentials_json, 'w') as f:
+            try:
+                content_template = {"api_key" : "examplen9masss23423553252ffffffe",
+                           "api_secret" : "examplefa1asfsafsafsa32434fdfsfsdfddsfsfddfdfsfd",
+                           "bearer_token" : "exampleAAAAAAAAAADFDSFGDDGGDAGDFHDFHBV424G4023fe032402320F242WER355W31tg21e454F4E4ER4Esfdsdfdfs",
+                           "access_token" : "example13371788gfdfgdfgdfgd344544gdfgfdsj5jytjjy",
+                           "access_token_secret" : "examplect42gdfhf5y66hsvbbgfhC91Rhfghgf45t4555552432324235"}
+                json.dump(content_template, f)
+
+            except json.JSONDecodeError:
+                logging('decode error but will try raw writing')
+                f.write(content_template)
+                
+    else:
+        logging(str(credentials_json) + ' already exists')
+        
+    # ------------------------------------------------------------------------------------------    
+    # ---------- checking if attributes json exists, otherwise we create it --------------------
+    # ------------------------------------------------------------------------------------------
+    
+    attributes_json = useful_variables.attributes_json
+    
+    content_template = {"words_to_search" : ['zolpidem','ambien'],
+                           "users_to_not_retweet" : ['user1','user2'],
+                           "forbidden_languages_to_retweet" : ['ja','ko','und','fa','ar'],
+                           "restrict_tweets_to_these_languages" : [] }
+    
+    if not os.path.exists(attributes_json):
+        logging("credentials json not found, gotta create it using a valid template")
+        
+        with open(attributes_json, 'w') as f:
+            try:
+                
+                json.dump(content_template, f)
+
+            except json.JSONDecodeError:
+                logging('decode error but will try raw writing')
+                f.write(contenting)
+                
+            finally:
+                return content_template
+                
+    else:
+        # ---------------- if file exists already, we will validate any inconsistency ---------
+        
+        logging(str(attributes_json) + ' already exists, let s validate the dictionary')
+        with open(useful_variables.attributes_json) as json_file:
+            dict_attributes_info = json.load(json_file)
+            
+            # ----------- all values have to be LIST type -----------------------
+            
+            for key, value in dict_attributes_info.items():
+                if not type(value) is list:
+                    pymsgbox.alert('YOU VE CHANGED THE TYPE OF SOME VALUE ON JSON! \nPLEASE, DELETE THE FILE, restart the bot AND FOLLOW THE INITIAL TEMPLATE we will create! \nALL VALUES HAVE TO BE LIST TYPE! \n\nfile is on \\bot_files\\controls\\attributes.json', 'BOT CANNOT START WITH INVALID ATTRIBUTES')
+                    logging('YOU VE CHANGED THE TYPE OF SOME VALUE ON JSON! PLEASE, DELETE IT AND FOLLOW THE INITIAL TEMPLATE')
+                    return -1
+            
+            # ----------- cant have same value on _restrict and _forbiden -------
+            
+            for language in dict_attributes_info['restrict_tweets_to_these_languages']:
+                if language in dict_attributes_info['forbidden_languages_to_retweet']:
+                    pymsgbox.alert('you cant ask us to only retweet things in the same language you WANT TO PROHIBIT retweeting! \nPLEASE UPDATE JSON FILE ON \\bot_files\\controls\\attributes.json and try again','what?')
+                    logging('you cant ask us to only retweet things in the same language you WANT TO PROHIBIT retweeting')
+                    return -2
+                
+        return content_template
+
+
+# In[161]:
 
 
 import import_ipynb
