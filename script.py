@@ -5,14 +5,21 @@
 #     First Release: 1 jan 2021 
 #     big text letters font generator: https://fsymbols.com/generators/tarty/
 
-# In[37]:
+# In[143]:
 
 
 def main():
     
     checking = checks_if_necessary_folders_exist_otherwise_create_them()
     checking = checks_if_necessary_files_exist_otherwise_create_them()
-    if not type(checking) is dict:
+    
+    if type(checking) is str:
+        logging('checking return: '+str(checking))
+        want_to_insert_rules = pymsgbox.confirm('HEY ! it looks like this is your first time here! Would you like to insert retweeting rules here?\nｙｏｕ　ｃａｎ　ａｌｗａｙｓ　ｕｐｄａｔｅ　ｔｈｅｍ　ｏｎ　bot_files/controls/attributes.json \nPLEASE, NOTICE THAT if you click NO (dont insert the rules now), bot will start by using the initial template! Check the json file NOW to see the standard assignments', 'INSERT RULES NOW?', ["Yes", "No, keep standard attributes"])
+        if want_to_insert_rules == 'Yes': 
+            receive_information_overwrite_json(json="attributes")
+    
+    elif type(checking) is int:
         logging('checking return: '+str(checking))
         raise TypeError('Error: necessary structure cannot be created or validated')
         
@@ -24,7 +31,7 @@ def main():
         credentials = json.load(credentials_file)
         #logging('credential value: '+ str(credentials))
                              
-    pymsgbox.alert("Starting bot!\n\n You can monitor what we're doing by reading today's logs on bot_files//logs folder!", 'Starting bot',timeout=8000)
+    pymsgbox.alert("Starting bot!\n\nYou can monitor what we're doing by reading today's logs on bot_files//logs folder!", 'Starting bot',timeout=8000)
     logging("░██████╗████████╗░█████╗░██████╗░████████╗██╗███╗░░██╗░██████╗░")
     logging("██╔════╝╚══██╔══╝██╔══██╗██╔══██╗╚══██╔══╝██║████╗░██║██╔════╝░")
     logging("╚█████╗░░░░██║░░░███████║██████╔╝░░░██║░░░██║██╔██╗██║██║░░██╗░")
@@ -102,7 +109,7 @@ def main():
             pymsgbox.alert('INVALID CREDENTIALS on jsoOoooOOooOon!!!', 'Stopping bot',timeout=15000)
             want_to_insert_credentials = pymsgbox.confirm('Would you like to insert your credentials here? \n or... update credentials on \\bot_files\\controls\\credentials.json', 'INSERT CREDENTIALS?', ["Yes", "No, I'll update the json file"])
             if want_to_insert_credentials == 'Yes':
-                receive_credentials_overwrite_credential_json()
+                receive_information_overwrite_json(json="credentials")
                 main()
         else:
             logging('Unkown error:' +str(error))
@@ -118,7 +125,7 @@ def main():
     pymsgbox.alert('$$$$$$$$$$$$$$ \n END OF LAP\n $$$$$$$$$$$$$', 'End of times',timeout=40000)
 
 
-# In[38]:
+# In[144]:
 
 
 def authenticating(credential):
@@ -144,7 +151,7 @@ def authenticating(credential):
     return api
 
 
-# In[39]:
+# In[145]:
 
 
 def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_info, searched_word):
@@ -269,7 +276,6 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
     # ---------------------------------------------------------------------------------------------------------
     # ---------------------------------- RETWEET ACTION ! -----------------------------------------------------
     # ---------------------------------------------------------------------------------------------------------
-    
         logging('retweeting ←←←←←←←←←←←←←')
         api.retweet(tweet.id)
         logging('→→→→→→→→→→→→→ retweeted') # if an exception is raised during retweet method, we wont arrive here
@@ -288,7 +294,7 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
         return -4
 
 
-# In[40]:
+# In[146]:
 
 
 def write_json_and_updates_value(path, incrementa_contagem_de_falha=False, inicializar = False):
@@ -358,7 +364,7 @@ def write_json_and_updates_value(path, incrementa_contagem_de_falha=False, inici
                         f.write(contenting)
 
 
-# In[41]:
+# In[147]:
 
 
 def export_infos_to_csv(valid_tweet):
@@ -423,7 +429,7 @@ def export_infos_to_csv(valid_tweet):
         wr.writerow(dict_values_in_list_version)
 
 
-# In[42]:
+# In[148]:
 
 
 def logging(text_to_log=""):
@@ -463,7 +469,7 @@ def logging(text_to_log=""):
     print(timestamp+ ' - ' + text_to_log)
 
 
-# In[43]:
+# In[149]:
 
 
 def translate_special_text_to_ascii(original_text):
@@ -478,33 +484,108 @@ def translate_special_text_to_ascii(original_text):
     return translated_text
 
 
-# In[44]:
+# In[150]:
 
 
-def receive_credentials_overwrite_credential_json():                
-    logging('\n\nfunction>>>>>receive_credentials_overwrite_credential_json')
+def receive_information_overwrite_json(json):      
     
-    new_api_key = pymsgbox.prompt('Insert your API KEY', default='3x4mPL3-j13j2o38s09dsaf')
-    new_api_secret = pymsgbox.prompt('Insert your API SECRET', default='3x4mPL3-j13j2o38s09dsaf')
-    new_bearer_token = pymsgbox.prompt('Insert your BEARER TOKEN', default='3x4mPL3-j13j2o38s09dsaf')
-    new_access_token = pymsgbox.prompt('Insert your ACCESS TOKEN', default='3x4mPL3-j13j2o38s09dsaf')
-    new_access_token_secret = pymsgbox.prompt('Insert your ACCESS TOKEN SECRET', default='3x4mPL3-j13j2o38s09dsaf')
- 
-    with open(useful_variables.credentials_json, 'w') as f:
-        try:
-            content = {"api_key" : new_api_key,
-                       "api_secret" : new_api_secret,
-                       "bearer_token" : new_bearer_token,
-                       "access_token" : new_access_token,
-                       "access_token_secret" : new_access_token_secret}
-            json.dump(content, f)
+    logging('\n\nfunction>>>>>receive_information_overwrite_json')
+    
+    if json =="credentials":
+        new_api_key = pymsgbox.prompt('Insert your API KEY', default='3x4mPL3-j13j2o38s09dsaf')
+        new_api_secret = pymsgbox.prompt('Insert your API SECRET', default='3x4mPL3-j13j2o38s09dsaf')
+        new_bearer_token = pymsgbox.prompt('Insert your BEARER TOKEN', default='3x4mPL3-j13j2o38s09dsaf')
+        new_access_token = pymsgbox.prompt('Insert your ACCESS TOKEN', default='3x4mPL3-j13j2o38s09dsaf')
+        new_access_token_secret = pymsgbox.prompt('Insert your ACCESS TOKEN SECRET', default='3x4mPL3-j13j2o38s09dsaf')
 
-        except json.JSONDecodeError:
-            logging('decode error but will try raw writing')
-            f.write(contenting)
+        with open(useful_variables.credentials_json, 'w') as f:
+            try:
+                content = {"api_key" : new_api_key,
+                           "api_secret" : new_api_secret,
+                           "bearer_token" : new_bearer_token,
+                           "access_token" : new_access_token,
+                           "access_token_secret" : new_access_token_secret}
+                json.dump(content, f)
+
+            except json.JSONDecodeError:
+                logging('decode error but will try raw writing')
+                f.write(contenting)
+            
+            
+    elif json =="attributes":       
+            new_words_to_search = pymsgbox.prompt('Insert the words you want to retweet (separeted by COMMA only) \nExample: bla, blabla, blablabla', default='word1,word2,word3')
+            logging('inputted new_words_to_search: '+ new_words_to_search)
+            new_users_to_not_retweet = pymsgbox.prompt('Insert users you want to ban retweets from (separeted by COMMA only)\nExample: bla, blabla, blablabla', default='user1,user2,user3')
+            logging('inputted new_users_to_not_retweet: '+ new_users_to_not_retweet)
+            new_forbidden_languages_to_retweet = pymsgbox.prompt('Do you want to forbid some specific language ? Insert them by using its standard abbreviation\nExample: pt, en  in case you dont want to see tweets in portuguese and english\n\nIf you want to retweet all languages, please dont write anything', default = 'en,pt')
+            logging('inputted new_forbidden_languages_to_retweet: '+ new_forbidden_languages_to_retweet)
+            new_restrict_tweets_to_these_languages = pymsgbox.prompt('Do you want to restrict ALL tweets to one single language? (Or some specific ones) Insert them by using its standard abbreviation\nExample: ja,ko  in case you ONLY want to see japanese and korean tweets!\n\nIf you dont wanna restrict tweets to some specific language, please dont write anything', default = "ja")
+            logging('inputted new_restrict_tweets_to_these_languages: '+ new_restrict_tweets_to_these_languages)
+            
+              
+            content = {"words_to_search" : [],
+                           "users_to_not_retweet" : [],
+                           "forbidden_languages_to_retweet" : [],
+                           "restrict_tweets_to_these_languages" : [] }
+            
+            if new_words_to_search in [""," "]:
+                pass
+            else:
+                new_words_to_search = new_words_to_search.split(",")
+                list_new_words_to_search = []
+                for word in new_words_to_search:
+                    word = word.strip()  # cut out spaces at the beginning and at the end of the word
+                    list_new_words_to_search.append(word)
+                logging('new_words_to_search to be written on json: '+str(list_new_words_to_search))
+                content["words_to_search"] = list_new_words_to_search
+
+            if new_users_to_not_retweet in [""," "]:
+                pass
+            else:
+                new_users_to_not_retweet = new_users_to_not_retweet.split(",")
+                list_users_to_not_retweet = []
+                for word in new_users_to_not_retweet:
+                    word = word.strip()  # cut out spaces at the beginning and at the end of the word
+                    list_users_to_not_retweet.append(word)
+                logging('new_users_to_not_retweet to be written on json: '+str(list_users_to_not_retweet))
+                content["users_to_not_retweet"] = list_users_to_not_retweet
+                
+    
+            if new_forbidden_languages_to_retweet in [""," "]:
+                pass
+            else: 
+                new_forbidden_languages_to_retweet = new_forbidden_languages_to_retweet.split(',')
+                list_new_forbidden_languages_to_retweet = []
+                for word in new_forbidden_languages_to_retweet:
+                    word = word.strip()  # cut out spaces at the beginning and at the end of the word
+                    list_new_forbidden_languages_to_retweet.append(word)
+                logging('new_forbidden_languages_to_retweet to be written on json: '+str(list_new_forbidden_languages_to_retweet))
+                content["forbidden_languages_to_retweet"] = list_new_forbidden_languages_to_retweet
+            
+            if new_restrict_tweets_to_these_languages in [""," "]:
+                pass
+            else:
+                new_restrict_tweets_to_these_languages = new_restrict_tweets_to_these_languages.split(',')
+                list_new_restrict_tweets_to_these_languages = []
+                for word in new_restrict_tweets_to_these_languages:
+                    word = word.strip()  # cut out spaces at the beginning and at the end of the word
+                    list_new_restrict_tweets_to_these_languages.append(word)
+                logging('new_restrict_tweets_to_these_languages to be written on json: '+str(list_new_restrict_tweets_to_these_languages))
+                content["restrict_tweets_to_these_languages"] = list_new_restrict_tweets_to_these_languages
+                
+            with open(useful_variables.attributes_json, 'w') as f:
+                try:
+                    for key, value in content.items():
+                        print('item ' + str(type(value)))
+                        print(str(value))
+                    json.dumps(content, f)
+
+                except AttributeError:
+                    logging('decode error but will try raw writing')
+                    f.write(str(content).replace("'",'"'))
 
 
-# In[45]:
+# In[151]:
 
 
 def liveshow(text="",title="Are we on air?",timeout=5000):
@@ -521,7 +602,7 @@ def liveshow(text="",title="Are we on air?",timeout=5000):
                   timeout = timeout)
 
 
-# In[46]:
+# In[152]:
 
 
 def checks_if_necessary_folders_exist_otherwise_create_them():
@@ -554,7 +635,7 @@ def checks_if_necessary_folders_exist_otherwise_create_them():
         logging('Unknown error: '+str(error))
 
 
-# In[47]:
+# In[153]:
 
 
 def checks_if_necessary_files_exist_otherwise_create_them():
@@ -615,7 +696,7 @@ def checks_if_necessary_files_exist_otherwise_create_them():
                            "restrict_tweets_to_these_languages" : [] }
     
     if not os.path.exists(attributes_json):
-        logging("credentials json not found, gotta create it using a valid template")
+        logging("attributes json not found, gotta create it using a valid template")
         
         with open(attributes_json, 'w') as f:
             try:
@@ -624,10 +705,10 @@ def checks_if_necessary_files_exist_otherwise_create_them():
 
             except json.JSONDecodeError:
                 logging('decode error but will try raw writing')
-                f.write(contenting)
+                f.write(content_template)
                 
             finally:
-                return content_template
+                return "attributes json had to be created, probably this is the first time of this user"
                 
     else:
         # -------------------------------------------------------------------------------------
@@ -661,7 +742,7 @@ def checks_if_necessary_files_exist_otherwise_create_them():
         return content_template
 
 
-# In[48]:
+# In[154]:
 
 
 import import_ipynb
@@ -677,4 +758,10 @@ import sys
 import csv
 
 main()
+
+
+# In[ ]:
+
+
+
 
