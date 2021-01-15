@@ -24,7 +24,7 @@ def main():
         credentials = json.load(credentials_file)
         #logging('credential value: '+ str(credentials))
                              
-    pymsgbox.alert('Starting bot!', 'Starting bot',timeout=5000)
+    pymsgbox.alert("Starting bot!\n\n You can monitor what we're doing by reading today's logs on bot_files//logs folder!", 'Starting bot',timeout=8000)
     logging("░██████╗████████╗░█████╗░██████╗░████████╗██╗███╗░░██╗░██████╗░")
     logging("██╔════╝╚══██╔══╝██╔══██╗██╔══██╗╚══██╔══╝██║████╗░██║██╔════╝░")
     logging("╚█████╗░░░░██║░░░███████║██████╔╝░░░██║░░░██║██╔██╗██║██║░░██╗░")
@@ -80,7 +80,8 @@ def main():
                         -3 : "you have already retweeted this Tweet",
                         -4 : "RateLimitError",
                         -5 : "tweet was made by the bot's account, we can't retweet stuff made by us",
-                        -6 : "tweet is not in desired language"
+                        -6 : "tweet is not in desired language",
+                        -7 : "tweet made by a forbidden-to-retweet user"
                     }
                     logging(cases.get(valid_tweet,"Invalid return"))
                     write_json_and_updates_value(useful_variables.control_json,
@@ -96,7 +97,7 @@ def main():
                 time.sleep(60*2) # sleep 2 min, so we dont reach the limit 100 tweets per hour
     
     except Exception as error:
-        if 'status code = 401' in str(error):
+        if 'status code = 401' in str(error) or 'status code = 400' in str(error):
             logging('INVALID CREDENTIALS, STOPPING BOT')
             pymsgbox.alert('INVALID CREDENTIALS on jsoOoooOOooOon!!!', 'Stopping bot',timeout=15000)
             want_to_insert_credentials = pymsgbox.confirm('Would you like to insert your credentials here? \n or... update credentials on \\bot_files\\controls\\credentials.json', 'INSERT CREDENTIALS?', ["Yes", "No, I'll update the json file"])
@@ -233,7 +234,6 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
             return -1
         else:
             logging('SEARCHED WORD OK: we found the searched word on tweet content!')
-        
         
         # -----------------------------------------------------------------------------------------------------
         user_of_this_tweet = str(tweet.user.screen_name)   # 𝐭𝐮𝐫𝐧𝐬 𝐬𝐜𝐫𝐞𝐞𝐧_𝐧𝐚𝐦𝐞 𝐚𝐭𝐭𝐫𝐢𝐛𝐮𝐭𝐞 𝐢𝐧𝐭𝐨 𝐬𝐭𝐫𝐢𝐧𝐠 𝐭𝐨 𝐜𝐨𝐦𝐩𝐚𝐫𝐞
@@ -413,11 +413,11 @@ def export_infos_to_csv(valid_tweet):
     if not os.path.exists(CSV_path):
         logging('today s csv does not exist yet, creating it and appending header')
         header_csv = ['created_at','tweet_ID','user','tweet_content','place','language','source'] 
-        with open(CSV_path, "a") as file:
+        with open(CSV_path, "a", encoding="utf-8", newline='') as file:
             wr = csv.writer(file)
             wr.writerow(header_csv)
             
-    with open(CSV_path, "a",encoding="utf-8", newline='') as file:
+    with open(CSV_path, "a", encoding="utf-8", newline='') as file:
         logging('writing tweet details on CSV file')
         wr = csv.writer(file)
         wr.writerow(dict_values_in_list_version)
@@ -562,7 +562,10 @@ def checks_if_necessary_files_exist_otherwise_create_them():
     
     # -1    invalid attributes: some value on attributes dict is not list type ('a' :   ['LIST','LIST'])
     # -2    invalid attributes: exclude a language from retweeting and ask to retweet the same language is contraditory
-    # dict  success to create and validate all json files
+    
+    # string json files DIDN'T exist, but we created the templates
+    # dict  json files existed and we successed in validating all json files
+    
 
     # ------------------------------------------------------------------------------------------
     # ---------- checking if control json exists, otherwise we create it -------------------
