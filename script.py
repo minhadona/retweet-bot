@@ -5,7 +5,7 @@
 #     First Release: 1 jan 2021 
 #     big text letters font generator: https://fsymbols.com/generators/tarty/
 
-# In[151]:
+# In[37]:
 
 
 def main():
@@ -13,8 +13,8 @@ def main():
     checking = checks_if_necessary_folders_exist_otherwise_create_them()
     checking = checks_if_necessary_files_exist_otherwise_create_them()
     if not type(checking) is dict:
-        print('checking: '+str(checking))
-        raise TypeError('Error: necessary files cannot be created or validated')
+        logging('checking return: '+str(checking))
+        raise TypeError('Error: necessary structure cannot be created or validated')
         
     # ----------------------------------------------------------------------------------
     # ---------------- populating dictionary with API credentials from json ------------
@@ -39,7 +39,7 @@ def main():
             dict_attributes_info = json.load(json_file)
             
         words = dict_attributes_info["words_to_search"]
-        logging('these are the words we r gonna search: '+str(words))
+        liveshow("these are the words we're gonna look for:" +str(words),"Attributes.json")
 
         for searched_word in words:
 
@@ -117,7 +117,7 @@ def main():
     pymsgbox.alert('$$$$$$$$$$$$$$ \n END OF LAP\n $$$$$$$$$$$$$', 'End of times',timeout=40000)
 
 
-# In[152]:
+# In[38]:
 
 
 def authenticating(credential):
@@ -143,7 +143,7 @@ def authenticating(credential):
     return api
 
 
-# In[153]:
+# In[39]:
 
 
 def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_info, searched_word):
@@ -167,7 +167,8 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
         # -3           ○ you have already retweeted this Tweet
         # -4           ○ RateLimitError
         # -5           ○ tweet was made by the bot's account, we can't retweet stuff made by us 
-        # -6           ○ tweet is not in desired language
+        # -6           ○ tweet is not in aimed language
+        # -7           ○ tweet made by a forbidden-to-retweet user
         # dict         ○ in a valid situation, returns a populated dictionary containing this tweet's data 
 
     try: 
@@ -192,55 +193,83 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
     
         logging('validate_and_retweet_tweet(): better filtering BEFORE retweet')
         
-        string_lang_content = "".join(dict_tweets_info['language'] )  # turns list into string to compare
+        # -----------------------------------------------------------------------------------------------------
+        string_lang_content = "".join(dict_tweets_info['language'] )  # 𝐭𝐮𝐫𝐧𝐬 𝐥𝐢𝐬𝐭 𝐢𝐧𝐭𝐨 𝐬𝐭𝐫𝐢𝐧𝐠 𝐭𝐨 𝐜𝐨𝐦𝐩𝐚𝐫𝐞
+        # -----------------------------------------------------------------------------------------------------
+        
         # -----------------------------------------------------------------------------------------------------
         # ---------------------------- checking if it's in one of the ENFORCED languages ----------------------
         # -----------------------------------------------------------------------------------------------------        
+        logging('filtering :::: enforced languages')
         if dict_attributes_info["restrict_tweets_to_these_languages"]:
             # only comes here if list is not empty! we have to enforce the languages on the list
             logging('these are the current enforced languages: '+str(dict_attributes_info["restrict_tweets_to_these_languages"]))
             if not string_lang_content in dict_attributes_info["restrict_tweets_to_these_languages"]:
-                logging('tweet is not in enforced languages list, we wont retweet any other language!')
+                logging('ENFORCED LANG not OK: this tweet is not in enforced languages list, we wont retweet any other language!')
                 return -6
             else: 
-                logging('we have restrictions and we are ok, language of this tweet is: '+string_lang_content)        
+                logging('ENFORCED LANG OK: this tweet is allowed by the enforced languages list: '+string_lang_content)        
         else:
-            logging('RESTRICTION LIST IS EMPTY, WE DONT NEED TO ENFORCE ANY LANGUAGE')
+            logging('ENFORCED LANG OK: RESTRICTION LIST IS EMPTY, WE DONT NEED TO ENFORCE ANY LANGUAGE')
+        
         # -----------------------------------------------------------------------------------------------------
         # ---------------------------- checking if it's in one of the FORBIDDEN languages ---------------------
         # -----------------------------------------------------------------------------------------------------
-        
+        logging('filtering :::: forbidden languages')
         if string_lang_content in dict_attributes_info["forbidden_languages_to_retweet"]:
-            logging('dumb robot, tweet is not in an understandable language so its content will be wrongly evaluated, we stop here')
+            logging('FORBIDDEN LANG not OK: dumb robot, tweet is not in an understandable language so its content will be wrongly evaluated, we stop here')
             return -2
         else: 
-            logging('not in any forbidden language! language is actually:'+string_lang_content)
+            logging('FORBIDDEN LANG OK: tweet is not in any forbidden language! language is actually: '+string_lang_content)
             
         # -----------------------------------------------------------------------------------------------------
         # ---------------------------- checking if the searched word really is on tweet content ---------------
         # -----------------------------------------------------------------------------------------------------
-
+        logging('filtering :::: searched word on tweet text')
         string_tweet_content = "".join(dict_tweets_info['tweet_content'] ) # turns list into string to compare
         if not searched_word in string_tweet_content.lower():
-            logging('we havent found '+ searched_word + ' on tweet content')
+            logging('SEARCHED WORD not OK: we havent found '+ searched_word + ' on tweet content')
             # NO WAY it's gonna retweet something that has NOT the word on the text
             return -1
+        else:
+            logging('SEARCHED WORD OK: we found the searched word on tweet content!')
+        
+        
+        # -----------------------------------------------------------------------------------------------------
+        user_of_this_tweet = str(tweet.user.screen_name)   # 𝐭𝐮𝐫𝐧𝐬 𝐬𝐜𝐫𝐞𝐞𝐧_𝐧𝐚𝐦𝐞 𝐚𝐭𝐭𝐫𝐢𝐛𝐮𝐭𝐞 𝐢𝐧𝐭𝐨 𝐬𝐭𝐫𝐢𝐧𝐠 𝐭𝐨 𝐜𝐨𝐦𝐩𝐚𝐫𝐞
+        # -----------------------------------------------------------------------------------------------------
+        
+        # -----------------------------------------------------------------------------------------------------
+        # ------------------------- checking if this tweet's user is among the forbidden users ---------------
+        # -----------------------------------------------------------------------------------------------------
+        logging('filtering :::: forbidden users')
+        if dict_attributes_info["users_to_not_retweet"]:
+            # only comes here if list is not empty! we have to block retweets from these users on list
+            logging('these are the current forbidden users to retweet: '+ str(dict_attributes_info["users_to_not_retweet"]))
+            if str(tweet.user.screen_name) in dict_attributes_info["users_to_not_retweet"]:
+                logging('FORBIDDEN USERS not OK: this tweet was made by a forbidden-to-retweet user')
+                return -7
+            else: 
+                logging('FORBIDDEN USERS OK: we are allowed to retweet tweets from @'+ user_of_this_tweet)        
+        else:
+            logging('FORBIDDEN USERS OK: LIST IS EMPTY, WE DONT NEED TO IGNORE ANY USER')
         
         # -----------------------------------------------------------------------------------------------------
         # ------------------------- checking if this tweet's user is also the authenticated user --------------
-        # -------------------------------- (so we dont retweet our own tweets) --------------------------------
-        
+        # -------------------------------- (so we dont retweet our 𝐨𝐰𝐧 tweets) --------------------------------
+        logging("filtering :::: tweet's user vs authenticated one")
         my_user_object = api.me()
-        if str(my_user_object.screen_name) == str(tweet.user.screen_name):
+        if str(my_user_object.screen_name) == user_of_this_tweet:
             logging('you are @'+ str(my_user_object.screen_name))
-            logging('this tweet was made by yourself using your bot profile or is an old RETWEET!! both cases we wont retweet it again')
+            logging('OWN AUTHORSHIP not OK: this tweet was made by yourself using your bot profile or is an old RETWEET!! both cases we wont retweet it again')
             return -5
         else:
-            logging('this user is not you! you: '+ str(my_user_object.screen_name) + ' VS the tweeter: '+ str(tweet.user.screen_name) +', that s great')
+            logging('OWN AUTHORSHIP OK: this user is not you! you: '+ str(my_user_object.screen_name) + ' VS this user: '+ user_of_this_tweet +', that s great')
         
     # ---------------------------------------------------------------------------------------------------------
     # ---------------------------------- RETWEET ACTION ! -----------------------------------------------------
     # ---------------------------------------------------------------------------------------------------------
+    
         logging('retweeting ←←←←←←←←←←←←←')
         api.retweet(tweet.id)
         logging('→→→→→→→→→→→→→ retweeted') # if an exception is raised during retweet method, we wont arrive here
@@ -259,7 +288,7 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
         return -4
 
 
-# In[154]:
+# In[40]:
 
 
 def write_json_and_updates_value(path, incrementa_contagem_de_falha=False, inicializar = False):
@@ -329,7 +358,7 @@ def write_json_and_updates_value(path, incrementa_contagem_de_falha=False, inici
                         f.write(contenting)
 
 
-# In[155]:
+# In[41]:
 
 
 def export_infos_to_csv(valid_tweet):
@@ -394,7 +423,7 @@ def export_infos_to_csv(valid_tweet):
         wr.writerow(dict_values_in_list_version)
 
 
-# In[156]:
+# In[42]:
 
 
 def logging(text_to_log=""):
@@ -434,7 +463,7 @@ def logging(text_to_log=""):
     print(timestamp+ ' - ' + text_to_log)
 
 
-# In[157]:
+# In[43]:
 
 
 def translate_special_text_to_ascii(original_text):
@@ -449,7 +478,7 @@ def translate_special_text_to_ascii(original_text):
     return translated_text
 
 
-# In[158]:
+# In[44]:
 
 
 def receive_credentials_overwrite_credential_json():                
@@ -475,42 +504,57 @@ def receive_credentials_overwrite_credential_json():
             f.write(contenting)
 
 
-# In[159]:
+# In[45]:
+
+
+def liveshow(text="",title="Are we on air?",timeout=5000):
+
+    # ----------------------------------------------------------------
+    # live show Definition (n.): 
+    #        "𝓁𝒾𝓋𝑒 𝒷𝓇𝑜𝒶𝒹𝒸𝒶𝓈𝓉, 𝒷𝓇𝑜𝒶𝒹𝒸𝒶𝓈𝓉 𝓉𝒽𝒶𝓉 𝒾𝓈 𝒶𝒾𝓇𝑒𝒹 𝒾𝓃 𝓇𝑒𝒶𝓁-𝓉𝒾𝓂𝑒 " 
+    #                          https://www.dictionarist.com/live+show
+    # ----------------------------------------------------------------
+
+    logging(text)
+    pymsgbox.alert(text = text,
+                  title = title,
+                  timeout = timeout)
+
+
+# In[46]:
 
 
 def checks_if_necessary_folders_exist_otherwise_create_them():
-    logging('\n\nfunction>>>>>checks_if_necessary_folders_exist_otherwise_create_them')
     # ----------------------------------------------------------------------------------------------
     # ---------------------  CREATES INTO SCRIPT DIRECTORY ALL NECESSARY FOLDERS  ------------------
     # ----------------------------------------------------------------------------------------------
-    
     try:
         if not os.path.exists(useful_variables.logs_folder):
             pymsgbox.alert(text="Creating logs' folder", title='Setting bot up', button='OK',timeout=4500)
             os.makedirs(useful_variables.logs_folder)
             logging("Creating logs' folder")
         else:
-            logging(str(useful_variables.logs_folder) + ' already exists')
+            liveshow(str(useful_variables.logs_folder) + ' already exists')
 
         if not os.path.exists(useful_variables.controls_folder):
             pymsgbox.alert(text='Creating controls folder', title='Setting bot up', button='OK',timeout=4500)
             os.makedirs(useful_variables.controls_folder)
             logging("Creating controls folder")
         else:
-            logging(str(useful_variables.controls_folder) + ' already exists')
+            liveshow(str(useful_variables.controls_folder) + ' already exists')
 
         if not os.path.exists(useful_variables.exported_data_folder):
             pymsgbox.alert(text='Creating exported_data folder', title='Setting bot up', button='OK',timeout=4500)
             os.makedirs(useful_variables.exported_data_folder)
             logging("Creating exported_data folder")
         else:
-            logging(str(useful_variables.exported_data_folder) + ' already exists')
+            liveshow(str(useful_variables.exported_data_folder) + ' already exists')
     
     except Exception as error:
         logging('Unknown error: '+str(error))
 
 
-# In[160]:
+# In[47]:
 
 
 def checks_if_necessary_files_exist_otherwise_create_them():
@@ -583,7 +627,9 @@ def checks_if_necessary_files_exist_otherwise_create_them():
                 return content_template
                 
     else:
+        # -------------------------------------------------------------------------------------
         # ---------------- if file exists already, we will validate any inconsistency ---------
+        # -------------------------------------------------------------------------------------
         
         logging(str(attributes_json) + ' already exists, let s validate the dictionary')
         with open(useful_variables.attributes_json) as json_file:
@@ -593,22 +639,26 @@ def checks_if_necessary_files_exist_otherwise_create_them():
             
             for key, value in dict_attributes_info.items():
                 if not type(value) is list:
-                    pymsgbox.alert('YOU VE CHANGED THE TYPE OF SOME VALUE ON JSON! \nPLEASE, DELETE THE FILE, restart the bot AND FOLLOW THE INITIAL TEMPLATE we will create! \nALL VALUES HAVE TO BE LIST TYPE! \n\nfile is on \\bot_files\\controls\\attributes.json', 'BOT CANNOT START WITH INVALID ATTRIBUTES')
-                    logging('YOU VE CHANGED THE TYPE OF SOME VALUE ON JSON! PLEASE, DELETE IT AND FOLLOW THE INITIAL TEMPLATE')
+                    liveshow('YOU VE CHANGED THE TYPE OF SOME VALUE ON JSON! \nPLEASE, DELETE THE FILE, restart the bot AND FOLLOW THE INITIAL TEMPLATE we will create! \nALL VALUES HAVE TO BE LIST TYPE! \n\nfile is on \\bot_files\\controls\\attributes.json', 'BOT CANNOT START WITH INVALID ATTRIBUTES')
                     return -1
             
             # ----------- cant have same value on _restrict and _forbiden -------
             
             for language in dict_attributes_info['restrict_tweets_to_these_languages']:
                 if language in dict_attributes_info['forbidden_languages_to_retweet']:
-                    pymsgbox.alert('you cant ask us to only retweet things in the same language you WANT TO PROHIBIT retweeting! \nPLEASE UPDATE JSON FILE ON \\bot_files\\controls\\attributes.json and try again','what?')
-                    logging('you cant ask us to only retweet things in the same language you WANT TO PROHIBIT retweeting')
+                    liveshow('you cant ask us to only retweet things in the same language you WANT TO PROHIBIT retweeting! \nPLEASE UPDATE JSON FILE ON \\bot_files\\controls\\attributes.json and try again','what?')
                     return -2
+                
+            # ----------- cant have empty value on words_to_search -------------
+            
+            if not dict_attributes_info["words_to_search"]:
+                liveshow("THIS IS A RETWEET BOT, if we have no words to look for, what do you want us to do? \nPlease update attributes.json inside of CONTROLS folder and set a list of words","Oh no",8000)
+                return -3
                 
         return content_template
 
 
-# In[161]:
+# In[48]:
 
 
 import import_ipynb
@@ -624,10 +674,4 @@ import sys
 import csv
 
 main()
-
-
-# In[ ]:
-
-
-
 
