@@ -5,53 +5,88 @@
 #     First Release: 1 jan 2021 
 #     big text letters font generator: https://fsymbols.com/generators/tarty/
 
-# In[143]:
+# In[1]:
 
 
 def main():
+    checking_folders = checks_if_necessary_folders_exist_otherwise_create_them()
+    checking_files = checks_if_necessary_files_exist_otherwise_create_them()
     
-    checking = checks_if_necessary_folders_exist_otherwise_create_them()
-    checking = checks_if_necessary_files_exist_otherwise_create_them()
+    # ----------------------------------------------------------------------------------
+    # -------- giving chance to a first-time user to change the bot rules --------------
+    # ----------------------------------------------------------------------------------
     
-    if type(checking) is str:
-        logging('checking return: '+str(checking))
-        want_to_insert_rules = pymsgbox.confirm('HEY ! it looks like this is your first time here! Would you like to insert retweeting rules here?\nｙｏｕ　ｃａｎ　ａｌｗａｙｓ　ｕｐｄａｔｅ　ｔｈｅｍ　ｏｎ　bot_files/controls/attributes.json \nPLEASE, NOTICE THAT if you click NO (dont insert the rules now), bot will start by using the initial template! Check the json file NOW to see the standard assignments', 'INSERT RULES NOW?', ["Yes", "No, keep standard attributes"])
+    if type(checking_files) is str or type(checking_folders) is list:
+        logging(f'main(): checking return: {checking_files}')
+        want_to_insert_rules = pymsgbox.confirm('HEY ! it looks like this is your first time here! Would you like to insert retweeting rules here?\nｙｏｕ　ｃａｎ　ａｌｗａｙｓ　ｕｐｄａｔｅ　ｔｈｅｍ　ｏｎ　bot_files/controls/attributes.json \nPLEASE, NOTICE THAT if you click NO (dont insert the rules now), bot will start by using the initial template! Check the json file NOW to see the standard assignments we will begin with', 'INSERT RULES NOW?', ["Yes", "No, keep standard attributes"])
         if want_to_insert_rules == 'Yes': 
             receive_information_overwrite_json(json="attributes")
+            
+    elif type(checking_folders) is str:
+        logging(f'main(): checking return FOLDERS: {checking_folders}')
+        raise TypeError('Error: necessary FOLDER structure cannot be created or validated')
     
-    elif type(checking) is int:
-        logging('checking return: '+str(checking))
-        raise TypeError('Error: necessary structure cannot be created or validated')
+    elif type(checking_files) is int:
+        logging(f'main(): checking return FILES: {checking_files}')
+        raise TypeError('Error: necessary FILES structure cannot be created or validated')
         
+    elif type(checking_files) is dict:
+        logging('main(): ok, all files were validated, we may start the bot!!!!')
+
+    logging(render('begin of lap', font="slick", background='transparent'))
+        
+    credentials_json = useful_variables.credentials_json
+    attributes_json = useful_variables.attributes_json
+    control_json = useful_variables.control_json
+    
     # ----------------------------------------------------------------------------------
     # ---------------- populating dictionary with API credentials from json ------------
     # ----------------------------------------------------------------------------------
-    
-    with open(useful_variables.credentials_json) as credentials_file:
+
+    with open(credentials_json) as credentials_file:
         credentials = json.load(credentials_file)
         #logging('credential value: '+ str(credentials))
                              
-    pymsgbox.alert("Starting bot!\n\nYou can monitor what we're doing by reading today's logs on bot_files//logs folder!", 'Starting bot',timeout=8000)
-    logging("░██████╗████████╗░█████╗░██████╗░████████╗██╗███╗░░██╗░██████╗░")
-    logging("██╔════╝╚══██╔══╝██╔══██╗██╔══██╗╚══██╔══╝██║████╗░██║██╔════╝░")
-    logging("╚█████╗░░░░██║░░░███████║██████╔╝░░░██║░░░██║██╔██╗██║██║░░██╗░")
-    logging("░╚═══██╗░░░██║░░░██╔══██║██╔══██╗░░░██║░░░██║██║╚████║██║░░╚██╗")
-    logging("██████╔╝░░░██║░░░██║░░██║██║░░██║░░░██║░░░██║██║░╚███║╚██████╔╝")
-    logging("╚═════╝░░░░╚═╝░░░╚═╝░░╚═╝╚═╝░░╚═╝░░░╚═╝░░░╚═╝╚═╝░░╚══╝░╚═════╝░")
+    pymsgbox.alert("Starting bot!\n\nYou can see what we're doing by reading today's logs on bot_files//logs folder!", 'Starting bot',timeout=8000)
     
+
     try: 
-        api = authenticating(credentials)
+    # ----------------------------------------------------------------------------------
+    # ------------------- authenticating by using API credentials ----------------------
+    # ----------------------------------------------------------------------------------
+        api = authenticating(credentials) # even if authentication fails, twitter unfortunately still returns an api object
+                                          # an exception is only raised on tweepy.Cursor, and to query our tweets 
+                                          # we have an unavoidable rather long way to go through
+                                          # we need to seek the attributes/rules we want BEFORE trying to request
+                                          # that's why we have this huge code-block inside this 'try' statement :/
         
-        with open(useful_variables.attributes_json) as json_file:
+        with open(attributes_json) as json_file:
             dict_attributes_info = json.load(json_file)
             
         words = dict_attributes_info["words_to_search"]
-        liveshow("these are the words we're gonna look for:" +str(words),"Attributes.json")
-
-        for searched_word in words:
-
-            for tweet in tweepy.Cursor(api.search, q = searched_word).items(1100):
-
+        words_str = str(words).replace('[','').replace(']','').replace('\'',"") 
+        logging(f"main(): these are the words we're gonna look for: {words_str}")
+        pymsgbox.alert(f"these are the words we're gonna look for: {words_str}","YOUR WISH IS MY COMMAND",timeout= 6500)
+        
+    # -----------------------------------------------------------------------------------------------
+    # ---- for every word from attributes.json, a while will retrieve N tweets (default is 1800) ----
+    # -----------------------------------------------------------------------------------------------
+    
+        try:
+            tweet_qtd_for_lap = int(dict_attributes_info["amount_of_tweets_to_retrieve_for_every_word"]) 
+                # cast to int just in case someone put some " on json 
+        except ValueError:
+                # if a letter was inserted, we can't go on 
+            logging(f'main(): amount of tweets is not convertible to integer, someone inserted a string value on our key...')
+            liveshow('something went wrong reading HOW MANY tweets you want to retrieve per word in attributes.json, please be sure you inserted a NUMBER and not a letter on amount_of_tweets_to_retrieve_for_every_word key')
+            raise Exception('if we dont know how many tweets to query, we cant start our bot, sorry')
+            
+        logging(f'main(): amount of tweets that will be retrieved for every word: {tweet_qtd_for_lap}')
+        
+        for searched_word in words: 
+    
+            for tweet in tweepy.Cursor(api.search, tweet_mode='extended', q = searched_word).items(tweet_qtd_for_lap):
+    
                 dict_tweets_info = {
                 "created_at": [],
                 "tweet_ID": [],
@@ -61,71 +96,91 @@ def main():
                 "language": [],
                 "source": [] 
             }
-
-                with open(useful_variables.control_json) as json_file:
-                    tweets_status = json.load(json_file)
-                    if tweets_status["amount_of_tweets"] == 999 and tweets_status['current_date'] == date:
-                        sys.exit('DAILY LIMIT REACHED, CANT RETWEET MORE THAN 1000 TWEETS')
-
-                                       
+            # --------------------------------------------------------------------------------------
+            # ---------------- check if we transpassed our daily limit of retweeting ---------------
+            # --------------------------------------------------------------------------------------
+            
+            logging('main(): checking if we reached our daily limit of successful retweets')
+            with open(control_json) as json_file:
+                tweets_status = json.load(json_file)
+                
+                today_date = datetime.now().strftime("%d/%m/%Y")
+    
+                if tweets_status["amount_of_tweets"] == 999 and tweets_status['current_date'] == today_date: 
+                    pymsgbox.alert("WE CANT RETWEET ANYMORE, SAFE DAILY LIMIT IS 1000 RETWEETS",'s o r r y',timeout=8000)
+                    logging('main(): we ve reached 1000 successefully retweets today, we re quiting')
+                    raise Exception('DAILY LIMIT REACHED, CANT RETWEET MORE THAN 1000 TWEETS')
+                else:
+                    logging('main(): ok we re below the limits for successful retweets') 
+                    logging(f'main(): we have successfully retweeted {tweets_status["amount_of_tweets"]} tweets until now')
+                        
+            # --------------------------------------------------------------------------------------
+            # ------- check if tweet is within the rules (language restrictions, content etc) ------
+            # --------------------------------------------------------------------------------------              
+            
                 valid_tweet = validate_and_retweet_tweet(api,
                                                          tweet,
                                                          dict_tweets_info,
                                                          dict_attributes_info,
                                                          searched_word)
 
+            # --------------------------------------------------------------------------------------
+            # ------- if tweet is valid, we export tweet's data to csv file of today ---------------
+            # -------------------------------------------------------------------------------------- 
+            
                 if type(valid_tweet) is dict:
-                    logging('VALID TWEET !!!!! Ok, we received a dict as return, we may export the results now')
+                    logging('main(): VALID TWEET !!!!! Ok, we may export our data now')
                     export_infos_to_csv(valid_tweet)
-                    write_json_and_updates_value(useful_variables.control_json,incrementa_contagem_de_falha=False)
-
+                    write_json_and_updates_value(control_json,
+                                                 increment_success_amount = True)
+                    
+            # --------------------------------------------------------------------------------------
+            # - if tweet is invalid, we log the reason and increment tweet counter (control json) --
+            # -------------------------------------------------------------------------------------- 
+            
                 elif type(valid_tweet) is int:
-                    logging('Tweet is not valid, analyzing return:: '+str(valid_tweet))
+                    logging(f'main(): Tweet is not valid, analyzing return:: {valid_tweet}')
                     cases={
                         -1 : "didn't found the searched_word on tweet.text it self",
-                        -2 : "invalid language (japanese, korean, arabic etc problems to recognize the searched word)",
+                        -2 : "forbidden/invalid language (japanese, korean, arabic etc problems to recognize the searched word)",
                         -3 : "you have already retweeted this Tweet",
                         -4 : "RateLimitError",
                         -5 : "tweet was made by the bot's account, we can't retweet stuff made by us",
                         -6 : "tweet is not in desired language",
                         -7 : "tweet made by a forbidden-to-retweet user"
                     }
-                    logging(cases.get(valid_tweet,"Invalid return"))
-                    write_json_and_updates_value(useful_variables.control_json,
-                                                 incrementa_contagem_de_falha=True)
+                    
+                    logging(f'main(): {cases.get(valid_tweet,"Invalid return")}')
+                    write_json_and_updates_value(control_json,
+                                                 increment_success_amount = False)
                     continue
 
                 else:
-                    logging('Unexpected return for validate_and_retweet_tweet different than dict or int!! content: '+str(valid_tweet) +'type of return: '+str(type(valid_tweet)))
-                    write_json_and_updates_value(useful_variables.control_json,
-                                                 incrementa_contagem_de_falha=False)
+                    logging('main(): Unexpected return for validate_and_retweet_tweet different than dict or int!! content: '+str(valid_tweet) +'type of return: '+str(type(valid_tweet)))
+                    write_json_and_updates_value(control_json,
+                                                 increment_success_amount = False)
 
-                logging("Waiting 2 min to retrieve another tweet cuz we like safety")
+                logging("main(): Waiting 2 min to retrieve another tweet cuz we like safety")
                 time.sleep(60*2) # sleep 2 min, so we dont reach the limit 100 tweets per hour
-    
+         
     except Exception as error:
+                # this is the only way i found to handle this weird exception
         if 'status code = 401' in str(error) or 'status code = 400' in str(error):
-            logging('INVALID CREDENTIALS, STOPPING BOT')
-            pymsgbox.alert('INVALID CREDENTIALS on jsoOoooOOooOon!!!', 'Stopping bot',timeout=15000)
+            logging('main(): INVALID CREDENTIALS, STOPPING BOT')
+            pymsgbox.alert('INVALID CREDENTIALS on JSON!!!', 'Stopping bot',timeout=15000)
             want_to_insert_credentials = pymsgbox.confirm('Would you like to insert your credentials here? \n or... update credentials on \\bot_files\\controls\\credentials.json', 'INSERT CREDENTIALS?', ["Yes", "No, I'll update the json file"])
             if want_to_insert_credentials == 'Yes':
                 receive_information_overwrite_json(json="credentials")
                 main()
         else:
-            logging('Unkown error:' +str(error))
+            logging(f'main(): Unkown error: {error}')
     
-
-    logging('███████╗███╗░░██╗██████╗░  ░█████╗░███████╗  ██╗░░░░░░█████╗░██████╗░')
-    logging('██╔════╝████╗░██║██╔══██╗  ██╔══██╗██╔════╝  ██║░░░░░██╔══██╗██╔══██╗')
-    logging('█████╗░░██╔██╗██║██║░░██║  ██║░░██║█████╗░░  ██║░░░░░███████║██████╔╝')
-    logging('██╔══╝░░██║╚████║██║░░██║  ██║░░██║██╔══╝░░  ██║░░░░░██╔══██║██╔═══╝░')
-    logging('███████╗██║░╚███║██████╔╝  ╚█████╔╝██║░░░░░  ███████╗██║░░██║██║░░░░░')
-    logging('╚══════╝╚═╝░░╚══╝╚═════╝░  ░╚════╝░╚═╝░░░░░  ╚══════╝╚═╝░░╚═╝╚═╝░░░░░')
+    logging(render('end of lap', font="slick", background='transparent'))
     
     pymsgbox.alert('$$$$$$$$$$$$$$ \n END OF LAP\n $$$$$$$$$$$$$', 'End of times',timeout=40000)
 
 
-# In[144]:
+# In[2]:
 
 
 def authenticating(credential):
@@ -143,15 +198,24 @@ def authenticating(credential):
     """
         # api                • <class 'tweepy.api.API'>     ○ authenticated api
    
-    auth = tweepy.OAuthHandler(credential["api_key"], credential["api_secret"])
-    auth.set_access_token(credential["access_token"], credential["access_token_secret"])
-
-    api = tweepy.API(auth,wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
+    auth = tweepy.OAuthHandler(credential["api_key"],
+                               credential["api_secret"])
     
+    auth.set_access_token(credential["access_token"],
+                          credential["access_token_secret"])
+
+    api = tweepy.API(auth,
+                     wait_on_rate_limit=True,
+                     wait_on_rate_limit_notify=True)
+    
+    logging(render(f'welcome,', font="slick", background='transparent'))
+    logging(render(f'{str(api.me().screen_name)}!', font="block", background='transparent'))
+    
+    logging('\nfunction<<<<<authenticating\n\n')
     return api
 
 
-# In[145]:
+# In[3]:
 
 
 def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_info, searched_word):
@@ -161,23 +225,24 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
     █ █▄░█
     █ █░▀█    
     """
-        # api                • <class 'tweepy.api.API'>    ○ authenticated api
-        # tweet              • <tweet object>              ○ one single tweet object and its attributes 
-        # dict_tweets_info   • <dictionary>                ○ empty, to be filled with informations from this tweet object
-        # searched_word      • <string>                    ○ seeking term (will be used here to validate the inner content of the tweet) 
+        # api                   • <class 'tweepy.api.API'>    ○ authenticated api
+        # tweet                 • <tweet object>              ○ one single tweet object and its attributes 
+        # dict_tweets_info      • <dictionary>                ○ empty, to be filled with informations from this tweet object
+        # dict_attributes_info  • <dictionary>                ○ attributes setted up on json to rule validations for this bot
+        # searched_word         • <string>                    ○ seeking term (will be used here to validate the inner content of the tweet) 
     
     """
     █▀█ █░█ ▀█▀
     █▄█ █▄█ ░█░
     """
         # -1           ○ didn't found the searched_word on tweet.text it self 
-        # -2           ○ forbidden language (japanese, korean, arabic etc problems to recognize the searched word)
+        # -2           ○ forbidden language (japanese, korean, arabic etc the ones we got problems to recognize the searched word)
         # -3           ○ you have already retweeted this Tweet
         # -4           ○ RateLimitError
         # -5           ○ tweet was made by the bot's account, we can't retweet stuff made by us 
-        # -6           ○ tweet is not in aimed language
+        # -6           ○ tweet is not in desired language
         # -7           ○ tweet made by a forbidden-to-retweet user
-        # dict         ○ in a valid situation, returns a populated dictionary containing this tweet's data 
+        # dict         ○ in a valid situation, returns a populated dictionary containing this tweet's data after retweeting it
 
     try: 
 
@@ -185,13 +250,13 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
         dict_tweets_info['created_at'].append(str(tweet.created_at))
         dict_tweets_info['tweet_ID'].append(str(tweet.id))
         dict_tweets_info['user'].append(str(tweet.user.screen_name))
-        dict_tweets_info['tweet_content'].append((tweet.text))
+        dict_tweets_info['tweet_content'].append((tweet.full_text))
         dict_tweets_info['place'].append(str(tweet.place))
         dict_tweets_info['language'].append(str(tweet.lang))
         dict_tweets_info['source'].append(str(tweet.source_url).replace("http://twitter.com/download/",""))
     
         logging('----------------------------------------')
-        logging('raw dict_tweets_info after appending: \n '+str(dict_tweets_info))
+        logging(f'raw dict_tweets_info after appending: \n {dict_tweets_info}')
         logging('----------------------------------------')
         
     
@@ -199,7 +264,7 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
     # --------------------------------- FILTERING BEFORE RETWEET ----------------------------------------------
     # ---------------------------------------------------------------------------------------------------------
     
-        logging('validate_and_retweet_tweet(): better filtering BEFORE retweet')
+        logging('validate_and_retweet_tweet(): filtering BEFORE retweet')
         
         # -----------------------------------------------------------------------------------------------------
         string_lang_content = "".join(dict_tweets_info['language'] )  # 𝐭𝐮𝐫𝐧𝐬 𝐥𝐢𝐬𝐭 𝐢𝐧𝐭𝐨 𝐬𝐭𝐫𝐢𝐧𝐠 𝐭𝐨 𝐜𝐨𝐦𝐩𝐚𝐫𝐞
@@ -208,13 +273,13 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
         # -----------------------------------------------------------------------------------------------------
         # ---------------------------- checking if it's in one of the ENFORCED languages ----------------------
         # -----------------------------------------------------------------------------------------------------        
-        logging('filtering :::: enforced languages')
+        logging(':::: filtering :::: enforced languages')
         if dict_attributes_info["restrict_tweets_to_these_languages"]:
             # only comes here if list is not empty! we have to enforce the languages on the list
-            logging('these are the current enforced languages: '+str(dict_attributes_info["restrict_tweets_to_these_languages"]))
+            logging(f'these are the current enforced languages: {dict_attributes_info["restrict_tweets_to_these_languages"]}')
             if not string_lang_content in dict_attributes_info["restrict_tweets_to_these_languages"]:
                 logging('ENFORCED LANG not OK: this tweet is not in enforced languages list, we wont retweet any other language!')
-                return -6
+                returning = -6
             else: 
                 logging('ENFORCED LANG OK: this tweet is allowed by the enforced languages list: '+string_lang_content)        
         else:
@@ -223,22 +288,22 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
         # -----------------------------------------------------------------------------------------------------
         # ---------------------------- checking if it's in one of the FORBIDDEN languages ---------------------
         # -----------------------------------------------------------------------------------------------------
-        logging('filtering :::: forbidden languages')
+        logging(':::: filtering :::: forbidden languages')
         if string_lang_content in dict_attributes_info["forbidden_languages_to_retweet"]:
             logging('FORBIDDEN LANG not OK: dumb robot, tweet is not in an understandable language so its content will be wrongly evaluated, we stop here')
-            return -2
+            returning = -2
         else: 
             logging('FORBIDDEN LANG OK: tweet is not in any forbidden language! language is actually: '+string_lang_content)
             
         # -----------------------------------------------------------------------------------------------------
         # ---------------------------- checking if the searched word really is on tweet content ---------------
         # -----------------------------------------------------------------------------------------------------
-        logging('filtering :::: searched word on tweet text')
+        logging(':::: filtering :::: searched word on tweet text')
         string_tweet_content = "".join(dict_tweets_info['tweet_content'] ) # turns list into string to compare
         if not searched_word in string_tweet_content.lower():
             logging('SEARCHED WORD not OK: we havent found '+ searched_word + ' on tweet content')
             # NO WAY it's gonna retweet something that has NOT the word on the text
-            return -1
+            returning = -1
         else:
             logging('SEARCHED WORD OK: we found the searched word on tweet content!')
         
@@ -247,34 +312,35 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
         # -----------------------------------------------------------------------------------------------------
         
         # -----------------------------------------------------------------------------------------------------
-        # ------------------------- checking if this tweet's user is among the forbidden users ---------------
+        # ------------------------- checking if THIS tweet's user is among the forbidden users ---------------
         # -----------------------------------------------------------------------------------------------------
-        logging('filtering :::: forbidden users')
+        logging(':::: filtering :::: forbidden users')
         if dict_attributes_info["users_to_not_retweet"]:
             # only comes here if list is not empty! we have to block retweets from these users on list
             logging('these are the current forbidden users to retweet: '+ str(dict_attributes_info["users_to_not_retweet"]))
             if str(tweet.user.screen_name) in dict_attributes_info["users_to_not_retweet"]:
                 logging('FORBIDDEN USERS not OK: this tweet was made by a forbidden-to-retweet user')
-                return -7
+                returning = -7
             else: 
                 logging('FORBIDDEN USERS OK: we are allowed to retweet tweets from @'+ user_of_this_tweet)        
         else:
             logging('FORBIDDEN USERS OK: LIST IS EMPTY, WE DONT NEED TO IGNORE ANY USER')
         
         # -----------------------------------------------------------------------------------------------------
-        # ------------------------- checking if this tweet's user is also the authenticated user --------------
-        # -------------------------------- (so we dont retweet our 𝐨𝐰𝐧 tweets) --------------------------------
-        logging("filtering :::: tweet's user vs authenticated one")
+        # ------------------------- checking if THIS tweet's user is also the authenticated user --------------
+        # -------------------------------- (so we dont retweet our 𝐨𝐰𝐧 tweets) -------------------------------
+        # -----------------------------------------------------------------------------------------------------
+        logging(":::: filtering :::: tweet's user vs authenticated one")
         my_user_object = api.me()
         if str(my_user_object.screen_name) == user_of_this_tweet:
             logging('you are @'+ str(my_user_object.screen_name))
             logging('OWN AUTHORSHIP not OK: this tweet was made by yourself using your bot profile or is an old RETWEET!! both cases we wont retweet it again')
-            return -5
+            returning = -5
         else:
             logging('OWN AUTHORSHIP OK: this user is not you! you: '+ str(my_user_object.screen_name) + ' VS this user: '+ user_of_this_tweet +', that s great')
         
     # ---------------------------------------------------------------------------------------------------------
-    # ---------------------------------- RETWEET ACTION ! -----------------------------------------------------
+    # ---------------------------------- OK, RETWEET ACTION ! -------------------------------------------------
     # ---------------------------------------------------------------------------------------------------------
         logging('retweeting ←←←←←←←←←←←←←')
         api.retweet(tweet.id)
@@ -284,20 +350,23 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
     except tweepy.TweepError as e: 
         if e.api_code == 327:
             logging('Exception Code 327: You have already retweeted this Tweet')
-            return -3
+            returning = -3
         
     except tweepy.RateLimitError as e:
         logging('RateLimitError')
         logging('Unknown error: '+str(e))
         logging('according to internet, sleeping for 15 min should solve...')
         time.sleep(60 * 15)  # we saw rate limit is ignored after 15 min ??? ///not confirmed hypothesis///
-        return -4
+        returning = -4
+        
+    logging('\nfunction<<<<<validate_and_retweet_tweet\n\n')    
+    return returning
 
 
-# In[146]:
+# In[4]:
 
 
-def write_json_and_updates_value(path, incrementa_contagem_de_falha=False, inicializar = False):
+def write_json_and_updates_value(path, increment_success_amount = False, initialize = False):
     logging('\n\nfunction>>>>>write_json_and_updates_value')
     
     """   
@@ -305,26 +374,38 @@ def write_json_and_updates_value(path, incrementa_contagem_de_falha=False, inici
     █ █░▀█    
     """
         # path                           • <string>          ○ control json path
-        # incrementa_contagem_de_falha   • <bool>            ○ boolean flag to update or not a specific key
+        # increment_success_amount       • <bool>            ○ boolean flag to update or not a specific key
         # inicializar                    • <bool>            ○ boolean flag to reset (set to 0) or not all the keys
     
     now = datetime.now()
     current_date = now.strftime("%d/%m/%Y")
 
-    # try to read from file
+    # ---------------------------------------------------------------------------------------------------------
+    # -------------------------------- trying to read from file -----------------------------------------------
+    # ---------------------------------------------------------------------------------------------------------
+    logging(f'write_json_and_updates_value(): loading json file into dictionary, so we can manipulate values')
+    
     try:
         with open(path) as json_file:
             tweets_status = json.load(json_file)
-
+            
+    except IOError as io_e:
+        if initialize:
+            logging(f'write_json_and_updates_value(): file does not exist yet but we will create because we got the initialize parameter as true')
+        else:
+            logging(f'write_json_and_updates_value(): IO ERROR BUT WE WERE NOT SUPPOSED TO INITIALIZE THE FILE NOW: {io_e}')
+                
     except Exception as e:
-        print(str(e))
+        logging(f'write_json_and_updates_value(): UNKOWN PROBLEMS WHEN TRYING TO READ JSON FILE: {e}')
 
-    # write on file
-    # if our current date is the same, increase amount of tweets.
-    # if our current date is different, amount is ZERO !!!!!!!!!!!!!!!!!!!!
+    # ---------------------------------------------------------------------------------------------------------
+    # ---------------------------------- writing on file ------------------------------------------------------
+    # ------- if our current date is the same of the file, we increase amount of tweets -----------------------
+    # ----- if different, amount of everything is ZERO because it's the first time running of today !!!! ------
+    # ---------------------------------------------------------------------------------------------------------
 
-    if inicializar or tweets_status['current_date'] != current_date: 
-        logging('different dates, OR initializing, so we need to change the current_date value and also turn into 0 all the values')
+    if initialize or tweets_status['current_date'] != current_date: 
+        logging('write_json_and_updates_value(): different dates, OR initializing parameter says true, so we need to update the current_date and also reset all the values to 0 ')
         with open(path, 'w') as f:
             try:
                 content = {"current_date": current_date,
@@ -333,13 +414,13 @@ def write_json_and_updates_value(path, incrementa_contagem_de_falha=False, inici
                 json.dump(content, f)
 
             except json.JSONDecodeError:
-                logging('decode error but will try raw writing')
+                logging('write_json_and_updates_value(): decode error but will try raw writing')
                 f.write(contenting)
     else: 
-        logging('same date!! so, just change the value of tweetts')
-        if not incrementa_contagem_de_falha:
-                logging('increases both keys , the including failure and the sucessed amounts')
-                #vai incrementtar o total com falhas tb + o total dos sucessos
+        logging('write_json_and_updates_value(): same date of file, bot was online today!! so, just update the value of tweets')
+        if increment_success_amount:
+                logging('write_json_and_updates_value(): increases both keys - failure and success counter')
+                # vai incrementtar o total com falhas tb + o total dos sucessos
                 tweets_status["amount_of_tweets"] = tweets_status["amount_of_tweets"]+1 
                 tweets_status['total_amount_including_failure'] = tweets_status['total_amount_including_failure']+1
                 with open(path, 'w') as f:
@@ -349,9 +430,8 @@ def write_json_and_updates_value(path, incrementa_contagem_de_falha=False, inici
                         logging('decode error but will try raw writing')
                         f.write(contenting)
                     
-        elif incrementa_contagem_de_falha:
-                # vai incrementar SOMENTE chave com total de tweets, independente de ter falhado ou nao
-                logging('INCREMENTANDO CHAVE DE CONTAGEM TOTAL DE TWEETS')
+        elif not increment_success_amount: 
+                logging('increasing amount of the ones who failure')
                      # increasing amount of the ones who failure 
                 tweets_status['total_amount_including_failure'] = tweets_status['total_amount_including_failure']+1
 
@@ -362,9 +442,12 @@ def write_json_and_updates_value(path, incrementa_contagem_de_falha=False, inici
                     except json.JSONDecodeError:
                         logging('decode error but will try raw writing')
                         f.write(contenting)
+                        
+    logging('\nfunction<<<<<write_json_and_updates_value\n\n')
+    return
 
 
-# In[147]:
+# In[5]:
 
 
 def export_infos_to_csv(valid_tweet):
@@ -384,9 +467,9 @@ def export_infos_to_csv(valid_tweet):
     timestamp = now.strftime("%d/%m/%Y").replace("/","-").replace(':',"-").replace(',','--').replace(" ","")
 
     CSV_path = useful_variables.exported_data_folder+'\\dados_'+timestamp+'.csv'
-    logging("today's CSV path: "+str(CSV_path))
+    logging(f"today's CSV path: {CSV_path}")
 
-    logging('valid_tweet : '+str(valid_tweet))
+    logging(f'valid_tweet : {valid_tweet}')
 
     # -------------------------------------------------------------------------------------------------------------
     # -------- to exclusively append tweet's informations, we CANT append dict directly, otherwise the function ---
@@ -408,7 +491,14 @@ def export_infos_to_csv(valid_tweet):
         
     dict_values_in_list_version[1] = '\''+dict_values_in_list_version[1]
 
-    logging('dict_values_in_list_version: '+str(dict_values_in_list_version))
+        # -----------------------------------------------------------------------------------------------------------
+        # ---- for some reason, a lot of tweets come with a \n character, which unduly makes CSV skip lines --------
+        # -----------------------------------------------------------------------------------------------------------
+     
+    for index, field in enumerate(dict_values_in_list_version):
+        dict_values_in_list_version[index] = field.replace('\n',"")
+            
+    logging(f'dict_values_in_list_version: {dict_values_in_list_version}')
 
         # -----------------------------------------------------------------------------------------------------------
         # --------- if today's CSV already exists, we will append only this specific tweet's DETAILS to file --------
@@ -427,9 +517,12 @@ def export_infos_to_csv(valid_tweet):
         logging('writing tweet details on CSV file')
         wr = csv.writer(file)
         wr.writerow(dict_values_in_list_version)
+        
+    logging('\nfunction>>>>>exporting_infos_to_csv\n\n')
+    return
 
 
-# In[148]:
+# In[6]:
 
 
 def logging(text_to_log=""):
@@ -467,31 +560,16 @@ def logging(text_to_log=""):
         # ------ printing on console ----------------------------------------------------------------------------
         # -----------------------------------------------------------------------------------------------------
     print(timestamp+ ' - ' + text_to_log)
+    return
 
 
-# In[149]:
-
-
-def translate_special_text_to_ascii(original_text):
-    translated_text = ''
-
-    for character in original_text:
-        if ord(character) >= 128:
-            translated_text = translated_text + '"Chr(' + str(ord(character)) + ')"'
-        else:
-            translated_text = translated_text + character
-
-    return translated_text
-
-
-# In[150]:
+# In[7]:
 
 
 def receive_information_overwrite_json(json):      
-    
     logging('\n\nfunction>>>>>receive_information_overwrite_json')
     
-    if json =="credentials":
+    if json == "credentials":
         new_api_key = pymsgbox.prompt('Insert your API KEY', default='3x4mPL3-j13j2o38s09dsaf')
         new_api_secret = pymsgbox.prompt('Insert your API SECRET', default='3x4mPL3-j13j2o38s09dsaf')
         new_bearer_token = pymsgbox.prompt('Insert your BEARER TOKEN', default='3x4mPL3-j13j2o38s09dsaf')
@@ -512,7 +590,7 @@ def receive_information_overwrite_json(json):
                 f.write(contenting)
             
             
-    elif json =="attributes":       
+    elif json == "attributes":       
             new_words_to_search = pymsgbox.prompt('Insert the words you want to retweet (separeted by COMMA only) \nExample: bla, blabla, blablabla', default='word1,word2,word3')
             logging('inputted new_words_to_search: '+ new_words_to_search)
             new_users_to_not_retweet = pymsgbox.prompt('Insert users you want to ban retweets from (separeted by COMMA only)\nExample: bla, blabla, blablabla', default='user1,user2,user3')
@@ -576,16 +654,17 @@ def receive_information_overwrite_json(json):
             with open(useful_variables.attributes_json, 'w') as f:
                 try:
                     for key, value in content.items():
-                        print('item ' + str(type(value)))
-                        print(str(value))
-                    json.dumps(content, f)
+                        json.dumps(content, f)
 
                 except AttributeError:
                     logging('decode error but will try raw writing')
                     f.write(str(content).replace("'",'"'))
+                    
+    logging('\nfunction<<<<<receive_information_overwrite_json\n\n')
+    return
 
 
-# In[151]:
+# In[8]:
 
 
 def liveshow(text="",title="Are we on air?",timeout=5000):
@@ -602,52 +681,62 @@ def liveshow(text="",title="Are we on air?",timeout=5000):
                   timeout = timeout)
 
 
-# In[152]:
+# In[9]:
 
 
 def checks_if_necessary_folders_exist_otherwise_create_them():
     # ----------------------------------------------------------------------------------------------
     # ---------------------  CREATES INTO SCRIPT DIRECTORY ALL NECESSARY FOLDERS  ------------------
     # ----------------------------------------------------------------------------------------------
+    returning = 1 
     try:
         if not os.path.exists(useful_variables.logs_folder):
             pymsgbox.alert(text="Creating logs' folder", title='Setting bot up', button='OK',timeout=4500)
             os.makedirs(useful_variables.logs_folder)
             logging("Creating logs' folder")
+            returning = ["probably first time"]
         else:
-            liveshow(str(useful_variables.logs_folder) + ' already exists')
+            liveshow(f'{useful_variables.logs_folder} already exists')
 
         if not os.path.exists(useful_variables.controls_folder):
             pymsgbox.alert(text='Creating controls folder', title='Setting bot up', button='OK',timeout=4500)
             os.makedirs(useful_variables.controls_folder)
             logging("Creating controls folder")
+            returning = ["probably first time"]
         else:
-            liveshow(str(useful_variables.controls_folder) + ' already exists')
+            liveshow(f'{useful_variables.controls_folder} already exists')
 
         if not os.path.exists(useful_variables.exported_data_folder):
             pymsgbox.alert(text='Creating exported_data folder', title='Setting bot up', button='OK',timeout=4500)
             os.makedirs(useful_variables.exported_data_folder)
             logging("Creating exported_data folder")
+            returning = ["probably first time"]
         else:
-            liveshow(str(useful_variables.exported_data_folder) + ' already exists')
-    
+            liveshow(f'{useful_variables.exported_data_folder} already exists')
+
     except Exception as error:
-        logging('Unknown error: '+str(error))
+        logging(f'Unknown error: {error}')
+        returning = str(error)
+    
+    return returning
 
 
-# In[153]:
+# In[10]:
 
 
 def checks_if_necessary_files_exist_otherwise_create_them():
     logging('\n\nfunction>>>>>checks_if_necessary_files_exist_otherwise_create_them')
+   
+    """
+    █▀█ █░█ ▀█▀
+    █▄█ █▄█ ░█░
+    """ 
+    # -1     ○ invalid attributes: FOUND ATTRIBUTES FILE BUT some value on attributes dict is not list type ('a' : ['LIST','LIST'])
+    # -2     ○ invalid attributes: FOUND ATTRIBUTES FILE BUT to exclude a language from retweeting and ask to retweet the same language is contraditory
+    # string ○ json files DIDN'T exist, but we created the templates
+    # dict   ○ json files exist and the validation for all json files successed
     
-    # -1    invalid attributes: some value on attributes dict is not list type ('a' :   ['LIST','LIST'])
-    # -2    invalid attributes: exclude a language from retweeting and ask to retweet the same language is contraditory
-    
-    # string json files DIDN'T exist, but we created the templates
-    # dict  json files existed and we successed in validating all json files
-    
-
+    returning = "we assume this is the first time running the bot "
     # ------------------------------------------------------------------------------------------
     # ---------- checking if control json exists, otherwise we create it -------------------
     # ------------------------------------------------------------------------------------------
@@ -655,10 +744,10 @@ def checks_if_necessary_files_exist_otherwise_create_them():
     if not os.path.exists(control_json):
         logging("control json not found, gotta create it")
         write_json_and_updates_value(control_json,
-                                     incrementa_contagem_de_falha = False,
-                                     inicializar = True)
+                                     increment_success_amount = False,
+                                     initialize = True)
     else:
-        logging(str(control_json) + ' already exists')
+        logging(f'{control_json} already exists')
 
     # ------------------------------------------------------------------------------------------    
     # ---------- checking if credentials json exists, otherwise we create it -------------------
@@ -682,7 +771,7 @@ def checks_if_necessary_files_exist_otherwise_create_them():
                 f.write(content_template)
                 
     else:
-        logging(str(credentials_json) + ' already exists')
+        logging(f'{credentials_json} already exists')
         
     # ------------------------------------------------------------------------------------------    
     # ---------- checking if attributes json exists, otherwise we create it --------------------
@@ -691,9 +780,10 @@ def checks_if_necessary_files_exist_otherwise_create_them():
     attributes_json = useful_variables.attributes_json
     
     content_template = {"words_to_search" : ['zolpidem','ambien'],
-                           "users_to_not_retweet" : ['user1','user2'],
-                           "forbidden_languages_to_retweet" : ['ja','ko','und','fa','ar'],
-                           "restrict_tweets_to_these_languages" : [] }
+                        "users_to_not_retweet" : ['user1','user2'],
+                        "forbidden_languages_to_retweet" : ['ja','ko','und','fa','ar'],
+                        "restrict_tweets_to_these_languages" : [],
+                        "amount_of_tweets_to_retrieve_for_every_word": 1800 }
     
     if not os.path.exists(attributes_json):
         logging("attributes json not found, gotta create it using a valid template")
@@ -708,41 +798,48 @@ def checks_if_necessary_files_exist_otherwise_create_them():
                 f.write(content_template)
                 
             finally:
-                return "attributes json had to be created, probably this is the first time of this user"
+                returning = "attributes json had to be created, probably this is the first time of this user"
                 
     else:
         # -------------------------------------------------------------------------------------
         # ---------------- if file exists already, we will validate any inconsistency ---------
         # -------------------------------------------------------------------------------------
         
-        logging(str(attributes_json) + ' already exists, let s validate the dictionary')
-        with open(useful_variables.attributes_json) as json_file:
+        logging(f'{attributes_json} already exists')
+        logging('let s validate its content')
+        with open(attributes_json) as json_file:
+            returning = content_template
             dict_attributes_info = json.load(json_file)
             
             # ----------- all values have to be LIST type -----------------------
             
             for key, value in dict_attributes_info.items():
+                if key == "amount_of_tweets_to_retrieve_for_every_word":
+                    continue # this is the only key that has not to be list type 
+                
                 if not type(value) is list:
-                    liveshow('YOU VE CHANGED THE TYPE OF SOME VALUE ON JSON! \nPLEASE, DELETE THE FILE, restart the bot AND FOLLOW THE INITIAL TEMPLATE we will create! \nALL VALUES HAVE TO BE LIST TYPE! \n\nfile is on \\bot_files\\controls\\attributes.json', 'BOT CANNOT START WITH INVALID ATTRIBUTES')
-                    return -1
+                    liveshow(f'YOU VE CHANGED THE TYPE OF SOME VALUE ON JSON! the value of {key} is not a list and it has to be!\nPLEASE, DELETE THE ATTRIBUTES.JSON FILE, restart the bot AND FOLLOW THE INITIAL TEMPLATE we will create! \n\n\nfile location: \\bot_files\\controls\\attributes.json\n\n', 'BOT CANNOT START WITH INVALID ATTRIBUTES')
+                    logging(f'the invalid key is {key}, because {value} is not list type')
+                    returning = -1
             
             # ----------- cant have same value on _restrict and _forbiden -------
             
             for language in dict_attributes_info['restrict_tweets_to_these_languages']:
                 if language in dict_attributes_info['forbidden_languages_to_retweet']:
-                    liveshow('you cant ask us to only retweet things in the same language you WANT TO PROHIBIT retweeting! \nPLEASE UPDATE JSON FILE ON \\bot_files\\controls\\attributes.json and try again','what?')
-                    return -2
+                    liveshow(f'you cant ask us to only retweet things in the same language you WANT TO PROHIBIT retweeting! you inserted {language} in both keys: restricting and forbidding!\nPLEASE UPDATE JSON FILE ON \\bot_files\\controls\\attributes.json and try again','what?')
+                    returning = -2
                 
             # ----------- cant have empty value on words_to_search -------------
             
             if not dict_attributes_info["words_to_search"]:
                 liveshow("THIS IS A RETWEET BOT, if we have no words to look for, what do you want us to do? \nPlease update attributes.json inside of CONTROLS folder and set a list of words","Oh no",8000)
-                return -3
+                returning = -3
                 
-        return content_template
+    logging('\nfunction<<<<<checks_if_necessary_files_exist_otherwise_create_them\n\n')            
+    return returning
 
 
-# In[154]:
+# In[ ]:
 
 
 import import_ipynb
@@ -756,6 +853,7 @@ import pandas as pd
 import json
 import sys
 import csv
+from cfonts import render, say
 
 main()
 
