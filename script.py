@@ -259,7 +259,6 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
         logging(f'raw dict_tweets_info after appending: \n {dict_tweets_info}')
         logging('----------------------------------------')
         
-    
     # ---------------------------------------------------------------------------------------------------------
     # --------------------------------- FILTERING BEFORE RETWEET ----------------------------------------------
     # ---------------------------------------------------------------------------------------------------------
@@ -447,7 +446,7 @@ def write_json_and_updates_value(path, increment_success_amount = False, initial
     return
 
 
-# In[5]:
+# In[12]:
 
 
 def export_infos_to_csv(valid_tweet):
@@ -470,7 +469,7 @@ def export_infos_to_csv(valid_tweet):
     logging(f"today's CSV path: {CSV_path}")
 
     logging(f'valid_tweet : {valid_tweet}')
-
+    
     # -------------------------------------------------------------------------------------------------------------
     # -------- to exclusively append tweet's informations, we CANT append dict directly, otherwise the function ---
     # ------------- will append header (dict keys) row + informations (dict values) row for EVERY tweet -----------
@@ -484,6 +483,10 @@ def export_infos_to_csv(valid_tweet):
     dict_values_in_list_version = []
     for key, value in valid_tweet.items():
         dict_values_in_list_version.append("".join(value))
+        
+                            # |-------------------------------------------------------|
+                            # | ---------------- DATA NORMALIZATION ------------------|
+                            # |-------------------------------------------------------|
 
         # -----------------------------------------------------------------------------------------------------------
         # -------- forcing Tweet ID to be written as string on sheet, so it doesnt truncate as scientific notation --
@@ -492,12 +495,17 @@ def export_infos_to_csv(valid_tweet):
     dict_values_in_list_version[1] = '\''+dict_values_in_list_version[1]
 
         # -----------------------------------------------------------------------------------------------------------
-        # ---- for some reason, a lot of tweets come with a \n character, which unduly makes CSV skip lines --------
+        # ---- for some reason, a lot of tweets comes with a \n character, which unduly makes CSV skip lines --------
         # -----------------------------------------------------------------------------------------------------------
      
     for index, field in enumerate(dict_values_in_list_version):
-        dict_values_in_list_version[index] = field.replace('\n',"")
-            
+        dict_values_in_list_version[index] = field.replace('\n',"")     
+        # -----------------------------------------------------------------------------------------------------------
+        # --------- when tweet is not made via app but via phone browser, the OS is not identifiable ----------------
+        # -----------------------------------------------------------------------------------------------------------
+        if 'mobile.twitter' in field:
+            dict_values_in_list_version[index] = field.replace("https://mobile.twitter.com","mobile browser")
+        
     logging(f'dict_values_in_list_version: {dict_values_in_list_version}')
 
         # -----------------------------------------------------------------------------------------------------------
