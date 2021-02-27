@@ -84,7 +84,7 @@ def main():
         logging(f'main(): amount of tweets that will be retrieved for every word: {tweet_qtd_for_lap}')
         
         for searched_word in words: 
-    
+            
             for tweet in tweepy.Cursor(api.search, tweet_mode='extended', q = searched_word).items(tweet_qtd_for_lap):
     
                 dict_tweets_info = {
@@ -100,19 +100,19 @@ def main():
             # ---------------- check if we transpassed our daily limit of retweeting ---------------
             # --------------------------------------------------------------------------------------
             
-            logging('main(): checking if we reached our daily limit of successful retweets')
-            with open(control_json) as json_file:
-                tweets_status = json.load(json_file)
-                
-                today_date = datetime.now().strftime("%d/%m/%Y")
-    
-                if tweets_status["amount_of_tweets"] == 999 and tweets_status['current_date'] == today_date: 
-                    pymsgbox.alert("WE CANT RETWEET ANYMORE, SAFE DAILY LIMIT IS 1000 RETWEETS",'s o r r y',timeout=8000)
-                    logging('main(): we ve reached 1000 successefully retweets today, we re quiting')
-                    raise Exception('DAILY LIMIT REACHED, CANT RETWEET MORE THAN 1000 TWEETS')
-                else:
-                    logging('main(): ok we re below the limits for successful retweets') 
-                    logging(f'main(): we have successfully retweeted {tweets_status["amount_of_tweets"]} tweets until now')
+                logging('main(): checking if we reached our daily limit of successful retweets')
+                with open(control_json) as json_file:
+                    tweets_status = json.load(json_file)
+
+                    today_date = datetime.now().strftime("%d/%m/%Y")
+
+                    if tweets_status["amount_of_tweets"] == 999 and tweets_status['current_date'] == today_date: 
+                        pymsgbox.alert("WE CANT RETWEET ANYMORE, SAFE DAILY LIMIT IS 1000 RETWEETS",'s o r r y',timeout=8000)
+                        logging('main(): we ve reached 1000 successefully retweets today, we re quiting')
+                        raise Exception('DAILY LIMIT REACHED, CANT RETWEET MORE THAN 1000 TWEETS')
+                    else:
+                        logging('main(): ok we re below the limits for successful retweets') 
+                        logging(f'main(): we have successfully retweeted {tweets_status["amount_of_tweets"]} tweets until now')
                         
             # --------------------------------------------------------------------------------------
             # ------- check if tweet is within the rules (language restrictions, content etc) ------
@@ -163,6 +163,12 @@ def main():
                 logging("main(): Waiting 2 min to retrieve another tweet cuz we like safety")
                 time.sleep(60*2) # sleep 2 min, so we dont reach the limit 100 tweets per hour
          
+    except tweepy.RateLimitError as e:
+        logging('main(): RateLimitError')
+        logging('main(): Unknown error: '+str(e))
+        logging('main(): according to tweepy documentation, sleeping for 15 min should solve...')
+        time.sleep(60 * 15) 
+        
     except Exception as error:
                 # this is the only way i found to handle this weird exception
         if 'status code = 401' in str(error) or 'status code = 400' in str(error):
@@ -446,7 +452,7 @@ def write_json_and_updates_value(path, increment_success_amount = False, initial
     return
 
 
-# In[12]:
+# In[5]:
 
 
 def export_infos_to_csv(valid_tweet):
@@ -847,7 +853,7 @@ def checks_if_necessary_files_exist_otherwise_create_them():
     return returning
 
 
-# In[ ]:
+# In[11]:
 
 
 import import_ipynb
