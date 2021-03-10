@@ -21,7 +21,7 @@ def main():
         want_to_insert_rules = pymsgbox.confirm('HEY ! it looks like this is your first time here! Would you like to insert retweeting rules here?\nｙｏｕ　ｃａｎ　ａｌｗａｙｓ　ｕｐｄａｔｅ　ｔｈｅｍ　ｏｎ　bot_files/controls/attributes.json \nPLEASE, NOTICE THAT if you click NO (dont insert the rules now), bot will start by using the initial template! Check the json file NOW to see the standard assignments we will begin with', 'INSERT RULES NOW?', ["Yes", "No, keep standard attributes"])
         if want_to_insert_rules == 'Yes': 
             receive_information_overwrite_json(json="attributes")
-            
+    
     elif type(checking_folders) is str:
         logging(f'main(): checking return FOLDERS: {checking_folders}')
         raise TypeError('Error: necessary FOLDER structure cannot be created or validated')
@@ -69,7 +69,8 @@ def main():
         pymsgbox.alert(f"these are the words we're gonna look for: {words_str}","YOUR WISH IS MY COMMAND",timeout= 6500)
         
     # -----------------------------------------------------------------------------------------------
-    # ---- for every word from attributes.json, a while will retrieve N tweets (default is 1800) ----
+    # ---- for every word from attributes.json, a while will retrieve N tweets for every word -------
+    # ----------- while the counter of successful retweets is < 1000 --------------------------------
     # -----------------------------------------------------------------------------------------------
     
         try:
@@ -83,85 +84,88 @@ def main():
             
         logging(f'main(): amount of tweets that will be retrieved for every word: {tweet_qtd_for_lap}')
         
-        for searched_word in words: 
-            
-            for tweet in tweepy.Cursor(api.search, tweet_mode='extended', q = searched_word).items(tweet_qtd_for_lap):
-    
-                dict_tweets_info = {
-                "created_at": [],
-                "tweet_ID": [],
-                "user": [],
-                "tweet_content": [],
-                "place": [],
-                "language": [],
-                "source": [] 
-            }
-            # --------------------------------------------------------------------------------------
-            # ---------------- check if we transpassed our daily limit of retweeting ---------------
-            # --------------------------------------------------------------------------------------
-            
-                logging('main(): checking if we reached our daily limit of successful retweets')
-                with open(control_json) as json_file:
-                    tweets_status = json.load(json_file)
+        allowed_to_keep_going = True
+        while allowed_to_keep_going:
+            for searched_word in words: 
 
-                    today_date = datetime.now().strftime("%d/%m/%Y")
+                for tweet in tweepy.Cursor(api.search, tweet_mode='extended', q = searched_word).items(tweet_qtd_for_lap):
 
-                    if tweets_status["amount_of_tweets"] == 999 and tweets_status['current_date'] == today_date: 
-                        pymsgbox.alert("WE CANT RETWEET ANYMORE, SAFE DAILY LIMIT IS 1000 RETWEETS",'s o r r y',timeout=8000)
-                        logging('main(): we ve reached 1000 successefully retweets today, we re quiting')
-                        raise Exception('DAILY LIMIT REACHED, CANT RETWEET MORE THAN 1000 TWEETS')
+                    dict_tweets_info = {
+                    "created_at": [],
+                    "tweet_ID": [],
+                    "user": [],
+                    "tweet_content": [],
+                    "place": [],
+                    "language": [],
+                    "source": [] 
+                }
+                # --------------------------------------------------------------------------------------
+                # ---------------- check if we transpassed our daily limit of retweeting ---------------
+                # --------------------------------------------------------------------------------------
+
+                    logging('main(): checking if we reached our daily limit of successful retweets')
+                    with open(control_json) as json_file:
+                        tweets_status = json.load(json_file)
+
+                        today_date = datetime.now().strftime("%d/%m/%Y")
+
+                        if tweets_status["amount_of_tweets"] == 999 and tweets_status['current_date'] == today_date: 
+                            pymsgbox.alert("WE CANT RETWEET ANYMORE, SAFE DAILY LIMIT IS 1000 RETWEETS",'s o r r y',timeout=8000)
+                            logging('main(): we ve reached 1000 successefully retweets today, we re quiting')
+                            raise Exception('DAILY LIMIT REACHED, CANT RETWEET MORE THAN 1000 TWEETS')
+                        else:
+                            logging('main(): ok we re below the limits for successful retweets') 
+                            logging(f'main(): we have successfully retweeted {tweets_status["amount_of_tweets"]} tweets until now')
+
+                # --------------------------------------------------------------------------------------
+                # ------- check if tweet is within the rules (language restrictions, content etc) ------
+                # --------------------------------------------------------------------------------------              
+
+                    valid_tweet = validate_and_retweet_tweet(api,
+                                                             tweet,
+                                                             dict_tweets_info,
+                                                             dict_attributes_info,
+                                                             searched_word)
+
+                # --------------------------------------------------------------------------------------
+                # ------- if tweet is valid, we export tweet's data to csv file of today ---------------
+                # -------------------------------------------------------------------------------------- 
+
+                    if type(valid_tweet) is dict:
+                        logging('main(): VALID TWEET !!!!! Ok, we may export our data now')
+                        export_infos_to_csv(valid_tweet)
+                        write_json_and_updates_value(control_json,
+                                                     increment_success_amount = True)
+
+                # --------------------------------------------------------------------------------------
+                # - if tweet is invalid, we log the reason and increment tweet counter (control json) --
+                # -------------------------------------------------------------------------------------- 
+
+                    elif type(valid_tweet) is int:
+                        logging(f'main(): Tweet is not valid, analyzing return:: {valid_tweet}')
+                        cases={
+                            -1 : "didn't found the searched_word on tweet.text it self",
+                            -2 : "forbidden/invalid language (japanese, korean, arabic etc problems to recognize the searched word)",
+                            -3 : "you have already retweeted this Tweet",
+                            -4 : "RateLimitError",
+                            -5 : "tweet was made by the bot's account, we can't retweet stuff made by us",
+                            -6 : "tweet is not in desired language",
+                            -7 : "tweet made by a forbidden-to-retweet user",
+                            -8 : "unknown error"
+                        }
+
+                        logging(f'main(): {cases.get(valid_tweet,"Invalid return")}')
+                        write_json_and_updates_value(control_json,
+                                                     increment_success_amount = False)
+                        continue
+
                     else:
-                        logging('main(): ok we re below the limits for successful retweets') 
-                        logging(f'main(): we have successfully retweeted {tweets_status["amount_of_tweets"]} tweets until now')
-                        
-            # --------------------------------------------------------------------------------------
-            # ------- check if tweet is within the rules (language restrictions, content etc) ------
-            # --------------------------------------------------------------------------------------              
-            
-                valid_tweet = validate_and_retweet_tweet(api,
-                                                         tweet,
-                                                         dict_tweets_info,
-                                                         dict_attributes_info,
-                                                         searched_word)
+                        logging('main(): Unexpected return for validate_and_retweet_tweet different than dict or int!! content: '+str(valid_tweet) +'type of return: '+str(type(valid_tweet)))
+                        write_json_and_updates_value(control_json,
+                                                     increment_success_amount = False)
 
-            # --------------------------------------------------------------------------------------
-            # ------- if tweet is valid, we export tweet's data to csv file of today ---------------
-            # -------------------------------------------------------------------------------------- 
-            
-                if type(valid_tweet) is dict:
-                    logging('main(): VALID TWEET !!!!! Ok, we may export our data now')
-                    export_infos_to_csv(valid_tweet)
-                    write_json_and_updates_value(control_json,
-                                                 increment_success_amount = True)
-                    
-            # --------------------------------------------------------------------------------------
-            # - if tweet is invalid, we log the reason and increment tweet counter (control json) --
-            # -------------------------------------------------------------------------------------- 
-            
-                elif type(valid_tweet) is int:
-                    logging(f'main(): Tweet is not valid, analyzing return:: {valid_tweet}')
-                    cases={
-                        -1 : "didn't found the searched_word on tweet.text it self",
-                        -2 : "forbidden/invalid language (japanese, korean, arabic etc problems to recognize the searched word)",
-                        -3 : "you have already retweeted this Tweet",
-                        -4 : "RateLimitError",
-                        -5 : "tweet was made by the bot's account, we can't retweet stuff made by us",
-                        -6 : "tweet is not in desired language",
-                        -7 : "tweet made by a forbidden-to-retweet user"
-                    }
-                    
-                    logging(f'main(): {cases.get(valid_tweet,"Invalid return")}')
-                    write_json_and_updates_value(control_json,
-                                                 increment_success_amount = False)
-                    continue
-
-                else:
-                    logging('main(): Unexpected return for validate_and_retweet_tweet different than dict or int!! content: '+str(valid_tweet) +'type of return: '+str(type(valid_tweet)))
-                    write_json_and_updates_value(control_json,
-                                                 increment_success_amount = False)
-
-                logging("main(): Waiting 2 min to retrieve another tweet cuz we like safety")
-                time.sleep(60*2) # sleep 2 min, so we dont reach the limit 100 tweets per hour
+                    logging("main(): Waiting 2 min to retrieve another tweet cuz we like safety")
+                    time.sleep(60*2) # sleep 2 min, so we dont reach the limit 100 tweets per hour
          
     except tweepy.RateLimitError as e:
         logging('main(): RateLimitError')
@@ -248,10 +252,11 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
         # -5           ○ tweet was made by the bot's account, we can't retweet stuff made by us 
         # -6           ○ tweet is not in desired language
         # -7           ○ tweet made by a forbidden-to-retweet user
+        # -8           ○ unknown error
         # dict         ○ in a valid situation, returns a populated dictionary containing this tweet's data after retweeting it
 
     try: 
-
+                
         logging('appending infos retrieved to dictionary')
         dict_tweets_info['created_at'].append(str(tweet.created_at))
         dict_tweets_info['tweet_ID'].append(str(tweet.id))
@@ -284,7 +289,7 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
             logging(f'these are the current enforced languages: {dict_attributes_info["restrict_tweets_to_these_languages"]}')
             if not string_lang_content in dict_attributes_info["restrict_tweets_to_these_languages"]:
                 logging('ENFORCED LANG not OK: this tweet is not in enforced languages list, we wont retweet any other language!')
-                returning = -6
+                return -6
             else: 
                 logging('ENFORCED LANG OK: this tweet is allowed by the enforced languages list: '+string_lang_content)        
         else:
@@ -296,7 +301,7 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
         logging(':::: filtering :::: forbidden languages')
         if string_lang_content in dict_attributes_info["forbidden_languages_to_retweet"]:
             logging('FORBIDDEN LANG not OK: dumb robot, tweet is not in an understandable language so its content will be wrongly evaluated, we stop here')
-            returning = -2
+            return -2
         else: 
             logging('FORBIDDEN LANG OK: tweet is not in any forbidden language! language is actually: '+string_lang_content)
             
@@ -308,7 +313,7 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
         if not searched_word in string_tweet_content.lower():
             logging('SEARCHED WORD not OK: we havent found '+ searched_word + ' on tweet content')
             # NO WAY it's gonna retweet something that has NOT the word on the text
-            returning = -1
+            return -1
         else:
             logging('SEARCHED WORD OK: we found the searched word on tweet content!')
         
@@ -325,7 +330,7 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
             logging('these are the current forbidden users to retweet: '+ str(dict_attributes_info["users_to_not_retweet"]))
             if str(tweet.user.screen_name) in dict_attributes_info["users_to_not_retweet"]:
                 logging('FORBIDDEN USERS not OK: this tweet was made by a forbidden-to-retweet user')
-                returning = -7
+                return -7
             else: 
                 logging('FORBIDDEN USERS OK: we are allowed to retweet tweets from @'+ user_of_this_tweet)        
         else:
@@ -340,7 +345,7 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
         if str(my_user_object.screen_name) == user_of_this_tweet:
             logging('you are @'+ str(my_user_object.screen_name))
             logging('OWN AUTHORSHIP not OK: this tweet was made by yourself using your bot profile or is an old RETWEET!! both cases we wont retweet it again')
-            returning = -5
+            return -5
         else:
             logging('OWN AUTHORSHIP OK: this user is not you! you: '+ str(my_user_object.screen_name) + ' VS this user: '+ user_of_this_tweet +', that s great')
         
@@ -355,17 +360,20 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
     except tweepy.TweepError as e: 
         if e.api_code == 327:
             logging('Exception Code 327: You have already retweeted this Tweet')
-            returning = -3
+            return -3
         
     except tweepy.RateLimitError as e:
         logging('RateLimitError')
         logging('Unknown error: '+str(e))
         logging('according to internet, sleeping for 15 min should solve...')
         time.sleep(60 * 15)  # we saw rate limit is ignored after 15 min ??? ///not confirmed hypothesis///
-        returning = -4
+        return -4
+    
+    except Exception as e:
+        logging(f'Unknown error:{e}')
+        return -8
         
     logging('\nfunction<<<<<validate_and_retweet_tweet\n\n')    
-    return returning
 
 
 # In[4]:
