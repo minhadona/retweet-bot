@@ -5,7 +5,7 @@
 #     First Release: 1 jan 2021 
 #     big text letters font generator: https://fsymbols.com/generators/tarty/
 
-# In[1]:
+# In[20]:
 
 
 def main():
@@ -151,7 +151,8 @@ def main():
                             -5 : "tweet was made by the bot's account, we can't retweet stuff made by us",
                             -6 : "tweet is not in desired language",
                             -7 : "tweet made by a forbidden-to-retweet user",
-                            -8 : "unknown error"
+                            -8 : "unknown error",
+                            -9 : "undesired/forbidden sentence was found on tweet"
                         }
 
                         logging(f'main(): {cases.get(valid_tweet,"Invalid return")}')
@@ -190,7 +191,7 @@ def main():
     pymsgbox.alert('$$$$$$$$$$$$$$ \n END OF LAP\n $$$$$$$$$$$$$', 'End of times',timeout=40000)
 
 
-# In[2]:
+# In[21]:
 
 
 def authenticating(credential):
@@ -225,7 +226,7 @@ def authenticating(credential):
     return api
 
 
-# In[3]:
+# In[22]:
 
 
 def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_info, searched_word):
@@ -253,6 +254,7 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
         # -6           ○ tweet is not in desired language
         # -7           ○ tweet made by a forbidden-to-retweet user
         # -8           ○ unknown error
+        # -9           ○ undesired/forbidden sentence was found on tweet 
         # dict         ○ in a valid situation, returns a populated dictionary containing this tweet's data after retweeting it
 
     try: 
@@ -316,7 +318,19 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
             return -1
         else:
             logging('SEARCHED WORD OK: we found the searched word on tweet content!')
-        
+            
+        # -----------------------------------------------------------------------------------------------------
+        # --------- checking if some undesired word/expression/sentence really is on tweet content ------------
+        # -----------------------------------------------------------------------------------------------------
+        logging(':::: filtering :::: undesired sentence on tweet text')
+        for sentence in dict_attributes_info["forbidden_sentences_to_retweet"]:
+            if sentence.lower() in string_tweet_content.lower():
+                logging('UNDESIRED WORD not OK: we found '+ dict_attributes_info["forbidden_sentences_to_retweet"] + ' on tweet content')
+                # NO WAY it's gonna retweet something that has a forbidden sentence on the text
+                return -9
+            else:
+                logging('UNDESIRED WORD OK: we havent found the searched word on tweet content!')
+            
         # -----------------------------------------------------------------------------------------------------
         user_of_this_tweet = str(tweet.user.screen_name)   # 𝐭𝐮𝐫𝐧𝐬 𝐬𝐜𝐫𝐞𝐞𝐧_𝐧𝐚𝐦𝐞 𝐚𝐭𝐭𝐫𝐢𝐛𝐮𝐭𝐞 𝐢𝐧𝐭𝐨 𝐬𝐭𝐫𝐢𝐧𝐠 𝐭𝐨 𝐜𝐨𝐦𝐩𝐚𝐫𝐞
         # -----------------------------------------------------------------------------------------------------
@@ -376,7 +390,7 @@ def validate_and_retweet_tweet(api, tweet, dict_tweets_info, dict_attributes_inf
     logging('\nfunction<<<<<validate_and_retweet_tweet\n\n')    
 
 
-# In[4]:
+# In[23]:
 
 
 def write_json_and_updates_value(path, increment_success_amount = False, initialize = False):
@@ -460,7 +474,7 @@ def write_json_and_updates_value(path, increment_success_amount = False, initial
     return
 
 
-# In[5]:
+# In[24]:
 
 
 def export_infos_to_csv(valid_tweet):
@@ -544,7 +558,7 @@ def export_infos_to_csv(valid_tweet):
     return
 
 
-# In[6]:
+# In[25]:
 
 
 def logging(text_to_log=""):
@@ -585,7 +599,7 @@ def logging(text_to_log=""):
     return
 
 
-# In[7]:
+# In[26]:
 
 
 def receive_information_overwrite_json(json):      
@@ -686,7 +700,7 @@ def receive_information_overwrite_json(json):
     return
 
 
-# In[8]:
+# In[27]:
 
 
 def liveshow(text="",title="Are we on air?",timeout=5000):
@@ -703,7 +717,7 @@ def liveshow(text="",title="Are we on air?",timeout=5000):
                   timeout = timeout)
 
 
-# In[9]:
+# In[28]:
 
 
 def checks_if_necessary_folders_exist_otherwise_create_them():
@@ -743,7 +757,7 @@ def checks_if_necessary_folders_exist_otherwise_create_them():
     return returning
 
 
-# In[10]:
+# In[29]:
 
 
 def checks_if_necessary_files_exist_otherwise_create_them():
@@ -805,7 +819,8 @@ def checks_if_necessary_files_exist_otherwise_create_them():
                         "users_to_not_retweet" : ['user1','user2'],
                         "forbidden_languages_to_retweet" : ['ja','ko','und','fa','ar'],
                         "restrict_tweets_to_these_languages" : [],
-                        "amount_of_tweets_to_retrieve_for_every_word": 1800 }
+                        "forbidden_sentences_to_retweet": ["I like that they felt they had to tell me not to take it with my ambien lmao don’t tell me what to do"],
+                        "amount_of_tweets_to_retrieve_for_every_word": 3 }
     
     if not os.path.exists(attributes_json):
         logging("attributes json not found, gotta create it using a valid template")
@@ -861,7 +876,7 @@ def checks_if_necessary_files_exist_otherwise_create_them():
     return returning
 
 
-# In[11]:
+# In[30]:
 
 
 import import_ipynb
@@ -878,10 +893,4 @@ import csv
 from cfonts import render, say
 
 main()
-
-
-# In[ ]:
-
-
-
 
