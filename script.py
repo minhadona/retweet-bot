@@ -9,6 +9,7 @@
 
 
 def main():
+    print('main in ')
     checking_folders = checks_if_necessary_folders_exist_otherwise_create_them()
     checking_files = checks_if_necessary_files_exist_otherwise_create_them()
     
